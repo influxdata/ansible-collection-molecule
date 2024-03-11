@@ -8,6 +8,21 @@ It provides tooling to create Molecule testing scenarios via the `init` role, an
 
 When utilizing an image with systemd support (systemd packages are installed, etc.), the `docker_platform` role supports the creation of Docker containers with a functional Systemd implementation, which can be used to test Ansible code that makes use of Systemd services or related functionality.
 
+# What is Molecule?
+
+> Molecule project is designed to aid in the development and testing of Ansible roles.
+
+Molecule is a testing platform for your Ansible projects that enables testing of your code both during development and after release via CI infrastructure.
+
+Some resources on Molecule can be found here:
+* [Developing and Testing Ansible Roles with Molecule and Podman - Part 1](https://www.ansible.com/blog/developing-and-testing-ansible-roles-with-molecule-and-podman-part-1)
+* [Testing your Ansible roles with Molecule](https://www.jeffgeerling.com/blog/2018/testing-your-ansible-roles-molecule)
+* [Ansible Collections: Role Tests with Molecule](https://ericsysmin.com/2020/04/30/ansible-collections-role-tests-with-molecule/)
+* [Introducing Ansible Molecule with Ansible Automation Platform](https://developers.redhat.com/articles/2023/09/13/introducing-ansible-molecule-ansible-automation-platform#an_automation_testing_framework_built_for_the_enterprise)
+
+> [!WARNING]  
+> Some [fairly significant changes](https://ansible.readthedocs.io/projects/molecule/next/) have been made in Molecule v6. Most noticable among these are likely to be that `ansible` is now the only driver included by default (previously called `delegated`), and that the `molecule init` command now only supports creation of scenarios, not Ansible roles. This [RedHat article](https://developers.redhat.com/articles/2023/09/13/introducing-ansible-molecule-ansible-automation-platform#) has some more information on this change. When reading the above referenced articles, keep in mind their publishing dates, and that there may have been breaking changes to Molecule's functionality since that time!
+
 # Using this collection
 
 The following roles are provided:
@@ -15,6 +30,8 @@ The following roles are provided:
 * [init](roles/init) - Initialize the Molecule testing framework for a project
 * [docker_platform](roles/docker_platform) - Create a docker-based test platform for Molecule
 * [prepare_controller](roles/prepare_controller) - Prepare a molecule controller to run local code tests
+
+The recommended way to use this collection is to provision Molecule scenarios using the [init role](roles/init). The `init` role provides template configurations that will work in various project types.
 
 ## Host Requirements
 
@@ -41,7 +58,7 @@ Docker CE can be installed by following the appropriate [installation instructio
 
 ## Project requirements
 
-Roles within this collection will attempt to discover what type of project they are being utilized in. This is enabled by setting the appropriate `project_type` configuration variable to `auto`. The project type can also be explicitly specified if this is desired.
+The `init` role from this collection will attempt to discover what type of project it is being utilized in. This is enabled by setting the `init_project_type` configuration variable to `auto`. The project type can also be explicitly specified if this is desired.
 
 Supported project types:  
 * `role`
