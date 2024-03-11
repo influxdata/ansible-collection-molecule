@@ -10,6 +10,12 @@ When utilizing an image with systemd support (systemd packages are installed, et
 
 # Using this collection
 
+The following roles are provided:
+
+* [init](roles/init) - Initialize the Molecule testing framework for a project
+* [docker_platform](roles/docker_platform) - Create a docker-based test platform for Molecule
+* [prepare_controller](roles/prepare_controller) - Prepare a molecule controller to run local code tests
+
 ## Host Requirements
 
 The host from which this collection is run (workstation, CI instance, etc.) must meet the following requirements:
