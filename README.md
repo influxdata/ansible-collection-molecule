@@ -22,7 +22,9 @@ Some resources on Molecule can be found here:
 
 > [!WARNING]  
 > Some [fairly significant changes](https://ansible.readthedocs.io/projects/molecule/next/) have been made in Molecule v6. Most noticable among these are likely to be that `ansible` is now the only driver included by default (previously called `delegated`), and that the `molecule init` command now only supports creation of scenarios, not Ansible roles. 
+>
 > This [RedHat article](https://developers.redhat.com/articles/2023/09/13/introducing-ansible-molecule-ansible-automation-platform#) has some more information on this change.
+>
 > When reading the above referenced articles, keep in mind their publishing dates, and that there may have been breaking changes to Molecule's functionality since that time!
 
 # Using this collection
@@ -187,7 +189,7 @@ ansible-playbook molecule/role-$ROLE_NAME/init.yml
 Note that in this circumstance, you will need to specify the scenario name in order to run molecule against it (as it is not named `default`).
 
 > [!WARNING]  
-> Creating more than one `default` scenario within a repository (IE: within roles in a monolithic project) will cause Molecule to fail to run at the project (outer) level!
+> Creating more than one `default` scenario within a repository (IE: within individual roles) will cause Molecule to fail to run at the outer project level!
 
 Running the `molecule list` command will provide you an overview of the available scenarios
 
@@ -214,7 +216,7 @@ molecule converge -s pb-example_playbook
 ```
 
 > [!TIP]  
-> The `molecule list` command will show multiple scenarios when run in the root of a monolithic project that also has molecule configured on individual playbooks or roles contained within it. Note that you will, however, still need to be in the appropriate role or playbook directory in order to successfully run these!
+> The `molecule list` command will show multiple scenarios when run in the root of a monolithic project that also has molecule configured on individual playbooks or roles contained within it. Note that you will, however, still need to be in the appropriate role or playbook directory in order to successfully run these scenarios!
 
 # Contributing
 
