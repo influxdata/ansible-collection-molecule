@@ -21,7 +21,9 @@ Some resources on Molecule can be found here:
 * [Introducing Ansible Molecule with Ansible Automation Platform](https://developers.redhat.com/articles/2023/09/13/introducing-ansible-molecule-ansible-automation-platform#an_automation_testing_framework_built_for_the_enterprise)
 
 > [!WARNING]  
-> Some [fairly significant changes](https://ansible.readthedocs.io/projects/molecule/next/) have been made in Molecule v6. Most noticable among these are likely to be that `ansible` is now the only driver included by default (previously called `delegated`), and that the `molecule init` command now only supports creation of scenarios, not Ansible roles. This [RedHat article](https://developers.redhat.com/articles/2023/09/13/introducing-ansible-molecule-ansible-automation-platform#) has some more information on this change. When reading the above referenced articles, keep in mind their publishing dates, and that there may have been breaking changes to Molecule's functionality since that time!
+> Some [fairly significant changes](https://ansible.readthedocs.io/projects/molecule/next/) have been made in Molecule v6. Most noticable among these are likely to be that `ansible` is now the only driver included by default (previously called `delegated`), and that the `molecule init` command now only supports creation of scenarios, not Ansible roles. 
+> This [RedHat article](https://developers.redhat.com/articles/2023/09/13/introducing-ansible-molecule-ansible-automation-platform#) has some more information on this change.
+> When reading the above referenced articles, keep in mind their publishing dates, and that there may have been breaking changes to Molecule's functionality since that time!
 
 # Using this collection
 
@@ -169,16 +171,50 @@ or if your `collections/requirements.yml` includes this collection:
 ansible-galaxy collection install -p ./collections -r ./collections/requirements.yml
 ```
 
-#### Testing roles within a monolithic project
+#### Testing roles and playbooks within a monolithic project
 
-When configuring molecule testing for individual roles within a monolithic project (creating a `roles/<role_name>/molecule` directory), take care _not_ to name the scenario "default", as there is already a "default" scenario for the monolithic project itself if you have created `molecule/default` as described above! Instead, name your role scenario with a unique name.
+When configuring molecule testing for individual roles or playbooks within a monolithic project (creating a `roles/<role_name>/molecule` or `playbooks/<playbook_name>/molecule` directory), take care _not_ to name the scenario "default", as there is already a "default" scenario for the monolithic project itself if you have created `molecule/default` as described above! Instead, name your role scenario with a unique name.
+
+For example (role):
 
 ```bash
 ROLE_NAME=your_role
 mkdir -p molecule/role-$ROLE_NAME
-wget -P molecule/role-$ROLE_NAME https://raw.githubusercontent.com/syndr/ansible-collection-molecule/main/roles/init/files/init.yml
+wget -P molecule/role-$ROLE_NAME https://raw.githubusercontent.com/influxdata/ansible-collection-molecule/main/roles/init/files/init.yml
 ansible-playbook molecule/role-$ROLE_NAME/init.yml
 ```
+
+Note that in this circumstance, you will need to specify the scenario name in order to run molecule against it (as it is not named `default`).
+
+> [!WARNING]  
+> Creating more than one `default` scenario within a repository (IE: within roles in a monolithic project) will cause Molecule to fail to run at the project (outer) level!
+
+Running the `molecule list` command will provide you an overview of the available scenarios
+
+```bash
+❯ molecule list                     
+INFO     Running pb-example_playbook > list
+                     ╷             ╷                  ╷                     ╷         ╷            
+  Instance Name      │ Driver Name │ Provisioner Name │ Scenario Name       │ Created │ Converged  
+╶────────────────────┼─────────────┼──────────────────┼─────────────────────┼─────────┼───────────╴
+  docker-rockylinux9 │ default     │ ansible          │ pb-example_playbook │ false   │ false      
+                     ╵             ╵                  ╵                     ╵         ╵
+```
+
+And running the full test suite for this playbook would be done as:
+
+```bash
+molecule test -s pb-example_playbook
+```
+
+While running just the "converge" steps (IE: during development) would be:
+
+```bash
+molecule converge -s pb-example_playbook
+```
+
+> [!TIP]  
+> The `molecule list` command will show multiple scenarios when run in the root of a monolithic project that also has molecule configured on individual playbooks or roles contained within it. Note that you will, however, still need to be in the appropriate role or playbook directory in order to successfully run these!
 
 # Contributing
 
