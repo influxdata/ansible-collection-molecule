@@ -1,14 +1,17 @@
 ---
 
 name: Update `latest` tag
-on: 
-  release:
-    types: [published]
+on:
+  push:
+    branches:
+      - main
 
 jobs:
   run:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
+      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,4 +23,5 @@ jobs:
           description: This tag is automatically generated on new releases.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 

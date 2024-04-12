@@ -1,0 +1,169 @@
+---
+# The ec2 platform has been created
+
+- name: Validate platform configuration - {{ ec2_platform.name | default('invalid') }}
+  ansible.builtin.assert:
+    that:
+      - ec2_platform is mapping
+      - ec2_platform.name is string and ec2_platform.name | length > 0
+      - ec2_platform.assign_public_ip is boolean
+      - ec2_platform.aws_profile is string
+      - ec2_platform.boot_wait_seconds is integer and ec2_platform.boot_wait_seconds >= 0
+      - ec2_platform.cloud_config is mapping
+      - ec2_platform.image is string
+      - ec2_platform.image_name is string
+      - ec2_platform.image_owner is sequence or (ec2_platform.image_owner is string and ec2_platform.image_owner | length > 0)
+      - ec2_platform.instance_type is string and ec2_platform.instance_type | length > 0
+      - ec2_platform.key_inject_method is in ["cloud-init", "ec2"]
+      - ec2_platform.key_name is string and ec2_platform.key_name | length > 0
+      - ec2_platform.private_key_path is string and ec2_platform.private_key_path | length > 0
+      - ec2_platform.public_key_path is string and ec2_platform.public_key_path | length > 0
+      - ec2_platform.region is string
+      - ec2_platform.security_group_name is string and ec2_platform.security_group_name | length > 0
+      - ec2_platform.security_group_description is string and ec2_platform.security_group_description | length > 0
+      - ec2_platform.security_group_rules is sequence
+      - ec2_platform.security_group_rules_egress is sequence
+      - ec2_platform.security_groups is sequence
+      - ec2_platform.ssh_user is string and ec2_platform.ssh_user | length > 0
+      - ec2_platform.ssh_port is integer and ec2_platform.ssh_port in range(1, 65536)
+      - ec2_platform.tags is mapping
+      - ec2_platform.volumes is sequence
+      - ec2_platform.vpc_id is string
+      - ec2_platform.vpc_subnet_id is string and ec2_platform.vpc_subnet_id | length > 0
+    quiet: true
+
+# TODO: Merge, not overwrite -- already does?
+- name: Write run config to file
+  ansible.builtin.copy:
+    dest: "{{ ec2_platform_run_config_path }}"
+    content: "{{ ec2_platform_run_config | to_yaml }}"
+    mode: "0600"
+
+- name: Generate local key pairs
+  community.crypto.openssh_keypair:
+    path: "{{ ec2_platform.private_key_path }}"
+    type: rsa
+    size: 2048
+    regenerate: never
+  register: __ec2_platform_local_keypair
+
+- name: Look up EC2 AMI(s) by owner and name (if image not set)
+  amazon.aws.ec2_ami_info:
+    owners: "{{ ec2_platform.image_owner }}"
+    filters: "{{ ec2_platform.image_filters | default({}) | combine(__ec2_platform_image_name_map) }}"
+  vars:
+    __ec2_platform_image_name_map: >-
+      "{% if ec2_platform.image_name is defined and ec2_platform.image_name | length > 0 %}
+      {{ {'name': ec2_platform.image_name} }}
+      {% else %}{}{% endif %}"
+  when: not ec2_platform.image
+  register: __ec2_platform_ami_info
+
+- name: Look up subnets to determine VPCs (if needed)
+  amazon.aws.ec2_vpc_subnet_info:
+    subnet_ids: "{{ ec2_platform.vpc_subnet_id }}"
+  when: not ec2_platform.vpc_id
+  register: __ec2_platform_subnet_info
+
+- name: Validate discovered information
+  ansible.builtin.assert:
+    that:
+      - ec2_platform.image or (__ec2_platform_ami_info.results[0].images | length > 0)
+      - ec2_platform.vpc_id or (__ec2_platform_subnet_info.results[0].subnets | length > 0)
+    quiet: true
+
+- name: Create ephemeral EC2 keys (if needed)
+  amazon.aws.ec2_key:
+    profile: "{{ ec2_platform.aws_profile | default(omit) }}"
+    region: "{{ ec2_platform.region | default(omit) }}"
+    name: "{{ ec2_platform.key_name }}"
+    key_material: "{{ __ec2_platform_local_keypair.public_key }}"
+  when: ec2_platform.key_inject_method == "ec2"
+  register: __ec2_platform_ec2_keys
+
+- name: Create ephemeral security groups (if needed)
+  amazon.aws.ec2_security_group:
+    profile: "{{ ec2_platform.aws_profile | default(omit) }}"
+    iam_instance_profile: "{{ ec2_platform.iam_instance_profile | default(omit) }}"
+    region: "{{ ec2_platform.region | default(omit) }}"
+    vpc_id: "{{ ec2_platform.vpc_id or vpc_subnet.vpc_id }}"
+    name: "{{ ec2_platform.security_group_name }}"
+    description: "{{ ec2_platform.security_group_description }}"
+    rules: "{{ ec2_platform.security_group_rules }}"
+    rules_egress: "{{ ec2_platform.security_group_rules_egress }}"
+  vars:
+    vpc_subnet: "{{ __ec2_platform_subnet_info.results[0].subnets[0] }}"
+  when: ec2_platform.security_groups | length == 0
+
+- name: Create ephemeral EC2 instance
+  amazon.aws.ec2_instance:
+    profile: "{{ ec2_platform.aws_profile | default(omit) }}"
+    region: "{{ ec2_platform.region | default(omit) }}"
+    filters: "{{ __ec2_platform_filters }}"
+    instance_type: "{{ ec2_platform.instance_type }}"
+    image_id: "{{ __ec2_platform_image_id }}"
+    vpc_subnet_id: "{{ ec2_platform.vpc_subnet_id }}"
+    security_groups: "{{ __ec2_platform_security_groups }}"
+    network:
+      assign_public_ip: "{{ ec2_platform.assign_public_ip }}"
+    volumes: "{{ ec2_platform.volumes }}"
+    key_name: "{{ (ec2_platform.key_inject_method == 'ec2') | ternary(ec2_platform.key_name, omit) }}"
+    tags: "{{ __ec2_platform_tags }}"
+    user_data: "{{ __ec2_platform_user_data }}"
+    state: "running"
+    wait: true
+  vars:
+    __ec2_platform_security_groups: "{{ ec2_platform.security_groups or [ec2_platform.security_group_name] }}"
+    __ec2_platform_generated_image_id: "{{ (ami_info.results[0].images | sort(attribute='creation_date', reverse=True))[0].image_id }}"
+    __ec2_platform_image_id: "{{ ec2_platform.image or __ec2_platform_generated_image_id }}"
+
+    __ec2_platform_generated_cloud_config:
+      users:
+        - name: "{{ ec2_platform.ssh_user }}"
+          ssh_authorized_keys:
+            - "{{ __ec2_platform_local_keypair.public_key }}"
+          sudo: "ALL=(ALL) NOPASSWD:ALL"
+    __ec2_platform_cloud_config: >-
+      {{ (ec2_platform.key_inject_method == 'cloud-init')
+           | ternary((ec2_platform.cloud_config | combine(__ec2_platform_generated_cloud_config)), ec2_platform.cloud_config) }}
+    __ec2_platform_user_data: |-
+      #cloud-config
+      {{ __ec2_platform_cloud_config | to_yaml }}
+
+    __ec2_platform_generated_tags:
+      instance: "{{ ec2_platform.name }}"
+      "molecule-run-id": "{{ ec2_platform_run_config.run_id }}"
+      Name: molecule-{{ ec2_platform.name }}
+    __ec2_platform_tags: "{{ (ec2_platform.tags or {}) | combine(__ec2_platform_generated_tags) }}"
+    __ec2_platform_filter_keys: "{{ __ec2_platform_generated_tags.keys() | map('regex_replace', '^(.+)$', 'tag:\\1') }}"
+    __ec2_platform_filters: "{{ dict(__ec2_platform_filter_keys | zip(__ec2_platform_generated_tags.values())) }}"
+  register: __ec2_instance_creation
+
+
+# NOTE: Var is used by the `platform` role to write Molecule instance configuration
+- name: Collect instance configs
+  vars:
+    __ec2_platform_instance: "{{ __ec2_instance_creation.instances[0] }}"
+  ansible.builtin.set_fact:
+    ec2_platform_instance_config:
+      instance: "{{ ec2_platform.name }}"
+      address: "{{ ec2_platform.assign_public_ip | ternary(__ec2_platform_instance.public_ip_address, __ec2_platform_instance.private_ip_address) }}"
+      user: "{{ ec2_platform.ssh_user }}"
+      port: "{{ ec2_platform.ssh_port }}"
+      identity_file: "{{ ec2_platform.private_key_path }}"
+      instance_ids:
+        - "{{ __ec2_platform_instance.instance_id }}"
+
+- name: Wait for SSH connectivity
+  ansible.builtin.wait_for:
+    host: "{{ ec2_platform_instance_config.address }}"
+    port: "{{ ec2_platform_instance_config.port }}"
+    search_regex: SSH
+    delay: 10
+    timeout: 320
+
+# TODO: Add an actual check here instead of only waiting
+- name: Wait for boot process to finish
+  ansible.builtin.pause:
+    seconds: "{{ ec2_platform.boot_wait_seconds }}"
+

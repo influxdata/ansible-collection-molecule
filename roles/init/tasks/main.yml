@@ -8,6 +8,75 @@
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/auto.yml"
   when: init_project_type == 'auto'
 
+- name: Build base platform definition
+  when: init_platforms is not truthy
+  # TODO: Define these values in the role defaults
+  block:
+    - name: Build base docker platform definition
+      when: init_platform_type == 'docker'
+      ansible.builtin.set_fact:
+        init_platforms:
+          - name: docker-rockylinux9
+            type: docker
+            config:
+              image: "geerlingguy/docker-rockylinux9-ansible:latest"
+              systemd: true
+
+    - name: Build base ec2 platform definition
+      when: init_platform_type == 'ec2'
+      ansible.builtin.set_fact:
+        init_platforms:
+          - name: ec2-rockylinux9
+            type: ec2
+            config:
+              image: "ami-067daee80a6d36ac0"
+              instance_type: "t3.micro"
+              region: "us-east-2"
+              vpc_id: "vpc-12345678"
+              vpc_subnet_id: "subnet-12345678"
+
+    - name: Platform definition is valid
+      ansible.builtin.assert:
+        that:
+          - init_platforms is defined
+          - init_platforms | length > 0
+          - init_platforms[0].name is string
+          - init_platforms[0].type is string
+          - init_platforms[0].config is mapping
+        fail_msg: "Platform definition failed! Check the platform configuration."
+        success_msg: "Platform definition is valid"
+
+- name: Load collection meta information
+  block:
+    - name: Load collection meta data
+      ansible.builtin.slurp:
+        src: "{{ role_path }}/../../MANIFEST.json"
+      register: __init_collection_meta
+      ignore_errors: true
+
+    - name: 🐜 Show collection meta data
+      ansible.builtin.debug:
+        var: __init_collection_meta.content | b64decode | from_json
+        verbosity: 1
+      ignore_errors: true
+
+    - name: Extract collection meta info
+      when:
+        - __init_collection_meta is not failed
+        - __init_collection_meta.content is defined
+        - (__init_collection_meta.content | b64decode | from_json).collection_info.version is defined
+      ansible.builtin.set_fact:
+        __init_collection_meta: "{{ (__init_collection_meta.content | b64decode | from_json) }}"
+
+- name: Set collection information
+  ansible.builtin.set_fact:
+    init_collection_version: >-
+      "{{ init_collection_version if init_collection_version is truthy
+      else __init_collection_meta.collection_info.version | default(init_collection_defaults.version) }}"
+    __init_collection_name: "{{ __init_collection_meta.collection_info.name | default(init_collection_defaults.name) }}"
+    __init_collection_namespace: "{{ __init_collection_meta.collection_info.namespace | default(init_collection_defaults.namespace) }}"
+    __init_collection_repository: "{{ __init_collection_meta.collection_info.repository | default(init_collection_defaults.repository) }}"
+
 - name: Deploy molecule configuration
   ansible.builtin.template:
     src: "{{ role_path }}/templates/molecule.yml.j2"

@@ -8,6 +8,9 @@
       - init_scenario_dir is string
       - init_project_dir is string
       - init_file_backup in [true, false]
+      - init_platform_type in ['docker', 'ec2']
+      - init_collection_version is string
+      - init_collection_source in ['galaxy', 'git']
     fail_msg: Global configuration option for init role is not sane
     success_msg: Sanity check passed
 

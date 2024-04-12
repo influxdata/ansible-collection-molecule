@@ -1,0 +1,25 @@
+---
+# Remove deployed resources
+
+- name: Initilze state
+  ansible.builtin.set_fact:
+    # Number of times this role has been included during this playbook run
+    __platform_run_count: "{{ __platform_run_count | default(0) | int + 1 }}"
+
+- name: Remove docker-type platform
+  when: platform_type == 'docker'
+  ansible.builtin.include_role:
+    name: "{{ ansible_collection_name }}.docker_platform"
+  vars:
+    docker_platform_name: "{{ platform_name }}"
+    docker_platform_state: absent
+
+- name: Remove ec2-type platform
+  when: platform_type == 'ec2'
+  ansible.builtin.include_role:
+    name: "{{ ansible_collection_name }}.ec2_platform"
+  vars:
+    ec2_platform_name: "{{ platform_name }}"
+    ec2_platform_state: absent
+    ec2_platform_definition: "{{ platform_molecule_cfg }}"
+

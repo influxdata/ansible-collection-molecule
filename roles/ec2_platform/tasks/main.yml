@@ -1,0 +1,26 @@
+---
+# tasks file for ec2_platform
+
+- name: 🐞 Show ec2_platform_definition
+  ansible.builtin.debug:
+    var: ec2_platform_definition
+    verbosity: 1
+
+# Merge the defaults with any options provided to this role
+- name: Generate runtime configuration
+  ansible.builtin.set_fact:
+    ec2_platform: "{{ ec2_platform_defaults | combine(ec2_platform_definition | default({})) }}"
+
+- name: 🦋 Show ec2_platform
+  ansible.builtin.debug:
+    var: ec2_platform
+    verbosity: 1
+
+- name: Platform is deployed
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/present.yml"
+  when: ec2_platform_state == 'present'
+
+- name: Platform is not deployed
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/absent.yml"
+  when: ec2_platform_state == 'absent'
+

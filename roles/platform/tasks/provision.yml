@@ -1,0 +1,37 @@
+---
+# Create a host and requisite configuration for use by molecule
+#
+
+- name: Initialize state
+  ansible.builtin.set_fact:
+    # Number of times this role has been included during this playbook run
+    __platform_run_count: "{{ __platform_run_count | default(0) | int + 1 }}"
+
+- name: Load system facts
+  ansible.builtin.setup:
+    filter:
+      - ansible_service_mgr
+
+- name: Configure platform for docker type
+  when: platform_type == 'docker'
+  ansible.builtin.include_role:
+    name: "{{ ansible_collection_name }}.docker_platform"
+  vars:
+    docker_platform_name: "{{ platform_name }}"
+    docker_platform_state: present
+    docker_platform_image: "{{ platform_molecule_cfg.image }}"
+    docker_platform_systemd: "{{ platform_molecule_cfg.systemd | default(false) }}"
+    docker_platform_modify_image: "{{ platform_molecule_cfg.modify_image | default(false) }}"
+    docker_platform_modify_image_buildpath: "{{ platform_molecule_cfg.modify_image_buildpath | default(molecule_ephemeral_directory + '/build') }}"
+    docker_platform_privileged: "{{ platform_molecule_cfg.privileged | default (false) }}"
+    docker_platform_hostvars: "{{ platform_molecule_cfg.hostvars | default({}) }}"
+
+- name: Configure platform for ec2 type
+  when: platform_type == 'ec2'
+  ansible.builtin.include_role:
+    name: "{{ ansible_collection_name }}.ec2_platform"
+  vars:
+    ec2_platform_name: "{{ platform_name }}"
+    ec2_platform_state: present
+    ec2_platform_definition: "{{ platform_molecule_cfg }}"
+
