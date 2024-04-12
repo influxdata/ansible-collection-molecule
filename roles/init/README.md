@@ -124,6 +124,17 @@ Role Variables
 # The type of project that this Molecule configuration will be integrated into
 init_project_type: auto
 
+# The type of platform that this Molecule configuration will be testing on (docker, ec2)
+# WARN: mixing platform types is not supported!
+init_platform_type: docker
+
+# Version of this collection that should be used by the Molecule test
+# - Set to "" to attempt to use the running version
+init_collection_version: ""
+
+# Source of the collection that this role is part of (galaxy, git)
+init_collection_source: git
+
 # Filesystem location of the molecule scenario being initialized
 init_scenario_dir: "{{ molecule_scenario_directory | default(playbook_dir) }}"
 
@@ -144,12 +155,9 @@ init_project_dir: "{{ init_scenario_dir.split('/')[:-2] | join('/') }}"
 #      modify_image: (true/false)
 #      modify_image_buildpath: (string)     # path to directory containing Dockerfile
 #      privileged: (true/false)
-init_platforms:
-  - name: docker-rocklinux9
-    type: docker
-    config:
-      image: "geerlingguy/docker-rockylinux9-ansible:latest"
-      systemd: true
+#
+# If not specified, the role will attempt to use the default platform configuration
+init_platforms: []
 
 # Create backups of any files that would be clobbered by running this role
 init_file_backup: true

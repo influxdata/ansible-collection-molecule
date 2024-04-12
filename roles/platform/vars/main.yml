@@ -1,0 +1,12 @@
+---
+# vars file for platform
+
+# Filesystem location of the Molecule ephemeral directory. Should not need to be updated by the user of this role!
+platform_molecule_ephemeral_directory: "{{ molecule_ephemeral_directory }}"
+
+# Does the molecule instance configuration file need to be updated? (assume yes)
+__platform_instance_config_update_needed: true
+
+  # Default connection method for hosts -- update as needed in tasks/inventory.yml
+__platform_ansible_connection: "ssh"
+

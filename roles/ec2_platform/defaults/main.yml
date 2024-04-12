@@ -1,0 +1,81 @@
+---
+# defaults file for ec2_platform
+
+# Name of this Molecule platform
+ec2_platform_name: instance
+
+# Run config handling
+ec2_platform_default_run_id: "{{ lookup('password', '/dev/null chars=ascii_lowercase length=5') }}"
+ec2_platform_default_run_config:
+  run_id: "{{ ec2_platform_default_run_id }}"
+
+ec2_platform_run_config_path: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/ec2-platform-run-config.yml"
+ec2_platform_run_config_from_file: "{{ (lookup('file', ec2_platform_run_config_path, errors='ignore') or '{}') | from_yaml }}"
+ec2_platform_run_config: '{{ ec2_platform_default_run_config | combine(ec2_platform_run_config_from_file) }}'
+
+# Platform settings handling
+ec2_platform_default_assign_public_ip: true
+ec2_platform_default_aws_profile: "{{ lookup('env', 'AWS_PROFILE') }}"
+ec2_platform_default_boot_wait_seconds: 120
+ec2_platform_default_instance_type: t3a.medium
+ec2_platform_default_key_inject_method: cloud-init # valid values: [cloud-init, ec2]
+ec2_platform_default_key_name: "molecule-{{ ec2_platform_run_config.run_id }}"
+ec2_platform_default_private_key_path: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/id_rsa"
+ec2_platform_default_public_key_path: "{{ ec2_platform_default_private_key_path }}.pub"
+ec2_platform_default_ssh_user: ansible
+ec2_platform_default_ssh_port: 22
+ec2_platform_default_user_data: ''
+
+ec2_platform_default_security_group_name: "molecule-{{ ec2_platform_run_config.run_id }}"
+ec2_platform_default_security_group_description: Ephemeral security group for Molecule instances
+ec2_platform_default_security_group_rules:
+  - proto: tcp
+    from_port: "{{ ec2_platform_default_ssh_port }}"
+    to_port: "{{ ec2_platform_default_ssh_port }}"
+    cidr_ip: "0.0.0.0/0"
+  - proto: icmp
+    from_port: 8
+    to_port: -1
+    cidr_ip: "0.0.0.0/0"
+ec2_platform_default_security_group_rules_egress:
+  - proto: -1
+    from_port: 0
+    to_port: 0
+    cidr_ip: "0.0.0.0/0"
+
+ec2_platform_defaults:
+  assign_public_ip: "{{ ec2_platform_default_assign_public_ip }}"
+  aws_profile: "{{ ec2_platform_default_aws_profile }}"
+  boot_wait_seconds: "{{ ec2_platform_default_boot_wait_seconds }}"
+  instance_type: "{{ ec2_platform_default_instance_type }}"
+  key_inject_method: "{{ ec2_platform_default_key_inject_method }}"
+  key_name: "{{ ec2_platform_default_key_name }}"
+  private_key_path: "{{ ec2_platform_default_private_key_path }}"
+  public_key_path: "{{ ec2_platform_default_public_key_path }}"
+  security_group_name: "{{ ec2_platform_default_security_group_name }}"
+  security_group_description: "{{ ec2_platform_default_security_group_description }}"
+  security_group_rules: "{{ ec2_platform_default_security_group_rules }}"
+  security_group_rules_egress: "{{ ec2_platform_default_security_group_rules_egress }}"
+  ssh_user: "{{ ec2_platform_default_ssh_user }}"
+  ssh_port: "{{ ec2_platform_default_ssh_port }}"
+  cloud_config: {}
+  image: ""
+  image_name: ""
+  image_owner: [self]
+  name: ""
+  region: ""
+  security_groups: []
+  tags: {}
+  volumes: []
+  vpc_id: ""
+  vpc_subnet_id: ""
+
+# Merging defaults into a list of dicts is, it turns out, not straightforward
+#ec2_platforms: >-
+#  {{ [ec2_platform_defaults | dict2items]
+#       | product(molecule_yml.platforms | map('dict2items') | list)
+#       | map('flatten', levels=1)
+#       | list
+#       | map('items2dict')
+#       | list }}
+

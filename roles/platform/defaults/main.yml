@@ -1,0 +1,15 @@
+---
+# defaults file for platform
+
+# Name of this Molecule platform
+platform_name: instance
+
+# Whether this platform should be deployed on the current system (present/absent)
+platform_state: present
+
+# What type of platform should be deployed
+platform_type: docker
+
+# Molecule platform configuration
+platform_molecule_cfg: {}
+

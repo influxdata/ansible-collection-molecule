@@ -3,59 +3,34 @@ molecule.docker_platform
 
 Create a docker-based test platform for Molecule.
 
+This role is intended to be used via the `molecule.platform` role that is included with this collection, and should not be referenced directly in a playbook.
+
+Configuration is done via the `platforms` section of the `molecule.yml` file in your Molecule scenario directory.
+
+Required configuration options are:
+
+- `name`: Name of the platform (string)
+- `type`: `docker`
+- `image`: Docker image to use for the platform (string)
+
+Optional configuration options are:
+
+- `systemd`: Whether the container should be started with SystemD enabled (boolean)
+- `modify_image`: Whether the provided image should be modified at runtime (boolean)
+- `modify_image_buildpath`: Path to Docker build files that should be used to modify the image (string)
+
 Requirements
 ------------
 
-1. Molecule should be installed and executable from a location in the users PATH
-1. Ansible should be installed, with `ansible-playbook` executable via the users PATH
 1. Docker should be installed
 1. The current user should be a member of the `docker` group
 
 Role Variables
 --------------
 
-```yaml
-# Name of this Molecule platform
-docker_platform_name: instance
+This role should not be used directly in a playbook, and should instead be used via the `molecule.platform` role.
 
-# Whether this platform should be deployed on the current system (present/absent)
-docker_platform_state: present
-
-# Docker image that this platform runs
-docker_platform_image: "geerlingguy/docker-rockylinux9-ansible:latest"
-
-# Should the provided image be modified at runtime
-docker_platform_modify_image: false
-
-# Path to docker build files that should be used to modify the image. Files are treated as templates
-#  and can contain jinja2 templating language ("{{ my_var }}" etc.)
-docker_platform_modify_image_buildpath: "{{ molecule_ephemeral_directory }}/build"
-
-# Command to be executed at runtime on the container
-#  Leave as "" to use container default
-docker_platform_command: ""
-
-# Is this a SystemD enabled container?
-docker_platform_systemd: true
-
-# A list of Docker volumes that should be attached to the container
-docker_platform_volumes: []
-
-# Run the container in Privileged mode (greater host access, less security!)
-docker_platform_privileged: false
-
-# A list of tmpfs filesystem paths to be passed to the container
-docker_platform_tmpfs: []
-```
-
-Configuration that should not require modification:  
-```yaml
-# Filesystem location of the Molecule ephemeral directory. Should not need to be updated by the user of this role!
-docker_platform_molecule_ephemeral_directory: "{{ molecule_ephemeral_directory }}"
-```
-
-Molecule variables expected:
-- `molecule_ephemeral_directory`
+Detailed information on configuration variables for this role can be found in [defaults/main.yml](defaults/main.yml).
 
 Dependencies
 ------------
@@ -66,36 +41,53 @@ Dependencies
 Example Playbook
 ----------------
 
+This role is intended to be used via the `molecule.platform` role that is included with this collection, and should not be referenced directly in a playbook.
+
+Configuration is done via the `platforms` section of the `molecule.yml` file in your Molecule scenario directory.
+
+```yaml
+platforms:
+  - name: docker-rockylinux9
+    type: docker
+    image: geerlingguy/docker-rockylinux9-ansible:latest
+    systemd: True
+    modify_image: False
+    privileged: False
+    hostvars: {}
+```
+
+To utilize this role, use the `platform` role that is included with this collection in your `create.yml` playbook!
+
 ```yaml
 - name: Create
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Create platform
+    - name: Create platform(s)
       ansible.builtin.include_role:
-        name: influxdata.molecule.docker_platform
+        name: influxdata.molecule.platform
       vars:
-        docker_platform_name: "{{ item.name }}"
-        docker_platform_image: "{{ item.image }}"
-        docker_platform_systemd: true
+        platform_name: "{{ item.name }}"
+        platform_state: present
+        platform_type: "{{ item.type }}"
+        platform_molecule_cfg: "{{ item }}"
       loop: "{{ molecule_yml.platforms }}"
       loop_control:
         label: item.name
 
-# we want to avoid errors like "Failed to create temporary directory"
-- name: Validate molecule inventory
+# We want to avoid errors like "Failed to create temporary directory"
+- name: Validate that inventory was refreshed
   hosts: molecule
   gather_facts: false
   tasks:
-    - name: Check kernel version
+    - name: Check uname
       ansible.builtin.raw: uname -a
       register: result
       changed_when: false
 
-    - name: Display kernel info
+    - name: Display uname info
       ansible.builtin.debug:
         msg: "{{ result.stdout }}"
-
 ```
 
 

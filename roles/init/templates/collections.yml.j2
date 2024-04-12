@@ -2,7 +2,11 @@
 
 collections:
   - name: community.docker
-  - name: git+https://github.com/influxdata/ansible-collection-molecule.git
+{% if init_collection_source == 'git' %}
+  - name: git+{{ __init_collection_repository }}.git
     type: git
-    version: latest
+{% elif init_collection_source == 'galaxy' %}
+  - name: {{ __init_collection_namespace }}.{{ __init_collection_name }}
+{% endif %}
+    version: {{ init_collection_version }}
 

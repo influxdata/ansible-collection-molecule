@@ -50,7 +50,9 @@ More tips on using Molecule can be found [below](#using-molecule).
 The following roles are provided:
 
 * [init](roles/init) - Initialize the Molecule testing framework for a project
-* [docker_platform](roles/docker_platform) - Create a docker-based test platform for Molecule
+* [platform](roles/platform) - Deploy a Molecule platform for testing
+* [docker_platform](roles/docker_platform) - Used by the `platform` role to create a Docker-based test platform
+* [ec2_platform](roles/ec2_platform) - Used by the `platform` role to create an EC2-based test platform
 * [prepare_controller](roles/prepare_controller) - Prepare a molecule controller to run local code tests
 
 The recommended way to use this collection is to provision Molecule scenarios using the [init role](roles/init). The `init` role provides template configurations that will work in various project types.

@@ -3,10 +3,11 @@
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Create platform
+    - name: Create platform(s)
       ansible.builtin.include_role:
-        name: influxdata.molecule.platform
+        name: syndr.molecule.platform
       vars:
+
         platform_name: "{{ item.name }}"
         platform_state: present
         platform_type: "{{ item.type }}"

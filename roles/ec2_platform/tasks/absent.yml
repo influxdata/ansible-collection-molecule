@@ -1,0 +1,76 @@
+---
+# Remove ec2 test resources
+
+- name: Load Molecule instance config
+  ansible.builtin.set_fact:
+    __ec2_instance_molecule_instance_config: "{{ (lookup('file', molecule_instance_config, errors='ignore') or '{}') | from_yaml }}"
+
+- name: Validate platform configurations
+  ansible.builtin.assert:
+    that:
+      - ec2_platform is mapping
+      - ec2_platform.name is string and ec2_platform.name | length > 0
+      - ec2_platform.aws_profile is string
+      - ec2_platform.key_inject_method is in ["cloud-init", "ec2"]
+      - ec2_platform.key_name is string and ec2_platform.key_name | length > 0
+      - ec2_platform.region is string
+      - ec2_platform.security_group_name is string and ec2_platform.security_group_name | length > 0
+      - ec2_platform.security_groups is sequence
+      - ec2_platform.vpc_id is string
+      - ec2_platform.vpc_subnet_id is string and ec2_platform.vpc_subnet_id | length > 0
+    quiet: true
+
+- name: Look up subnets to determine VPCs (if needed)
+  amazon.aws.ec2_vpc_subnet_info:
+    profile: "{{ ec2_platform.aws_profile | default(omit) }}"
+    region: "{{ ec2_platform.region | default(omit) }}"
+    subnet_ids: "{{ ec2_platform.vpc_subnet_id }}"
+  when: not ec2_platform.vpc_id
+  register: __ec2_platform_subnet_info
+
+- name: Validate discovered information
+  ansible.builtin.assert:
+    that: ec2_platform.vpc_id or (__ec2_platform_subnet_info.subnets | length > 0)
+    quiet: true
+    fail_msg: "No VPCs found for subnet: {{ ec2_platform.vpc_subnet_id }}"
+
+- name: Look up EC2 instance by tag
+  amazon.aws.ec2_instance_info:
+    profile: "{{ ec2_platform.aws_profile | default(omit) }}"
+    region: "{{ ec2_platform.region | default(omit) }}"
+    filters:
+      "tag:molecule-run-id": "{{ ec2_platform_run_config.run_id }}"
+  register: __ec2_instance_info
+
+- name: Destroy ephemeral EC2 instances
+  when: __ec2_instance_info.instances | length > 0
+  amazon.aws.ec2_instance:
+    profile: "{{ ec2_platform.aws_profile | default(omit) }}"
+    region: "{{ ec2_platform.region | default(omit) }}"
+    instance_ids: "{{ __ec2_instance_info.instances | map(attribute='instance_id') | list }}"
+    vpc_subnet_id: "{{ ec2_platform.vpc_subnet_id }}"
+    state: absent
+  register: __ec2_instance_destroy
+
+- name: Destroy ephemeral security groups (if needed)
+  amazon.aws.ec2_security_group:
+    profile: "{{ ec2_platform.aws_profile | default(omit) }}"
+    region: "{{ ec2_platform.region | default(omit) }}"
+    vpc_id: "{{ ec2_platform.vpc_id or __ec2_platform_subnet_info.subnets[0] }}"
+    name: "{{ ec2_platform.security_group_name }}"
+    state: absent
+  when: ec2_platform.security_groups | length == 0
+
+- name: Destroy ephemeral keys (if needed)
+  amazon.aws.ec2_key:
+    profile: "{{ ec2_platform.aws_profile | default(omit) }}"
+    region: "{{ ec2_platform.region | default(omit) }}"
+    name: "{{ ec2_platform.key_name }}"
+    state: absent
+  when: ec2_platform.key_inject_method == "ec2"
+
+- name: Remove ec2 instance config file
+  ansible.builtin.file:
+    path: "{{ ec2_platform_run_config_path }}"
+    state: absent
+
