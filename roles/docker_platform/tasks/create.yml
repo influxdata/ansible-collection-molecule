@@ -55,11 +55,11 @@
 
 - name: Build docker volume list
   ansible.builtin.set_fact:
-    __docker_platform_volume_list: "{{ docker_platform_volumes + ['/sys/fs/cgroup/molecule-ci.scope:/sys/fs/cgroup:rw']
+    __docker_platform_volume_list: "{{ docker_platform_volumes + ['/sys/fs/cgroup:/sys/fs/cgroup:rw']
       if docker_platform_systemd
       else docker_platform_volumes }}"
 
-- name: Runtime docker container is present and running
+- name: "{{ docker_platform_name }} docker container is present and running"
   community.docker.docker_container:
     name: "{{ docker_platform_name }}"
     image: "{{ __docker_platform_built_image_name | default(docker_platform_image) }}"
@@ -70,31 +70,31 @@
     init: false
     cgroupns_mode: "{{ 'host' if docker_platform_systemd is true else 'private' }}"
     privileged: "{{ docker_platform_privileged }}"
-    tmpfs: "{{ docker_platform_tmpfs + ['/run'] if docker_platform_systemd else docker_platform_tmpfs }}"
+    tmpfs: "{{ docker_platform_tmpfs + ['/run', '/run/lock'] if docker_platform_systemd else docker_platform_tmpfs }}"
     volumes: "{{ __docker_platform_volume_list }}"
   register: __docker_platform_create_result
 
-- name: Print some info
+- name: Print creation output
   ansible.builtin.debug:
     msg: "{{ __docker_platform_create_result }}"
     verbosity: 1
 
-- name: Fail if container is not running
+- name: Fail if  is not running
   block:
-    - name: Retrieve container log
+    - name: Retrieve {{ docker_platform_name }} container log
       ansible.builtin.command:
         cmd: docker logs {{ __docker_platform_create_result.container.Name }}
       changed_when: false
       register: __docker_platform_logfile_cmd
 
-    - name: Display container log
+    - name: Container {{ docker_platform_name }} failed to start
       ansible.builtin.fail:
         msg: "{{ __docker_platform_logfile_cmd.stdout ~  __docker_platform_logfile_cmd.stderr }}"
   when: >
     __docker_platform_create_result.container.State.ExitCode != 0 or
     not __docker_platform_create_result.container.State.Running
 
-- name: Systemd status is healthy
+- name: "{{ docker_platform_name }} Systemd status is healthy"
   block:
     - name: System service manager is Systemd
       ansible.builtin.assert:
@@ -114,7 +114,7 @@
       changed_when: false
       failed_when: __docker_platform_systemctl_status.rc > 1
 
-    - name: System is healthy
+    - name: "{{ docker_platform_name }} Systemd is healthy"
       ansible.builtin.assert:
         that:
           - "'running' in __docker_platform_systemctl_status.stdout"

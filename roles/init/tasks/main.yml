@@ -24,7 +24,9 @@
   loop:
     - collections.yml
     - requirements.yml
+    - create.yml
     - prepare.yml
+    - destroy.yml
   loop_control:
     loop_var: __init_item
 
@@ -35,12 +37,10 @@
     mode: 0644
     backup: "{{ init_file_backup }}"
   loop:
-    - create.yml
     - converge.yml
     - side_effect.yml
     - verify.yml
     - cleanup.yml
-    - destroy.yml
   loop_control:
     loop_var: __init_item
 

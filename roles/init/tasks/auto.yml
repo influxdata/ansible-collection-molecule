@@ -1,15 +1,15 @@
 ---
 # Automagically deturmine what type of Ansible project this is
 
-- name: Check for role meta configuration
+- name: Check for role meta/main.yml
   ansible.builtin.stat:
     path: "{{ init_project_dir }}/meta/main.yml"
-  register: __init_rolepath_stat
+  register: __init_role_meta_stat
 
-- name: Check for collection Galaxy configuration
+- name: Check for collection galaxy.yml
   ansible.builtin.stat:
     path: "{{ init_project_dir }}/galaxy.yml"
-  register: __init_collectionpath_stat
+  register: __init_collection_galaxy_stat
 
 - name: Check for monolith
   block:
@@ -30,16 +30,26 @@
         - __init_monoroles_stat.stat.exists is true
         - __init_monoplaybooks_stat.stat.exists is true
 
+- name: Check for playbook-specific files
+  block:
+    - name: Check for playbook tasks directory
+      ansible.builtin.stat:
+        path: "{{ init_project_dir }}/tasks"
+      register: __init_playbook_tasks_stat
+
 - name: Perform convergence dance
   block:
     - name: Detect crossed streams
       ansible.builtin.assert:
-        that: __init_rolepath_stat.stat.exists is true and
-            __init_collectionpath_stat.stat.exists is false and
+        that: __init_role_meta_stat.stat.exists is true and
+            __init_collection_galaxy_stat.stat.exists is false and
             __init_monolith is false or
-            __init_collectionpath_stat.stat.exists is true or
+            __init_collection_galaxy_stat.stat.exists is true or
             __init_monolith is true and
-            __init_rolepath_stat.stat.exists is false
+            __init_role_meta_stat.stat.exists is false or
+            __init_playbook_tasks_stat.stat.exists is true and
+            __init_role_meta_stat.stat.exists is false and
+            __init_monolith is false
         success_msg: Known repository format detected!
         fail_msg: No known repository type detected. 😵
 
@@ -47,21 +57,30 @@
       ansible.builtin.set_fact:
         init_project_type: role
       when:
-          - __init_rolepath_stat.stat.exists is true
-          - __init_collectionpath_stat.stat.exists is false
-          - __init_monolith is false
+        - __init_role_meta_stat.stat.exists is true
+        - __init_collection_galaxy_stat.stat.exists is false
+        - __init_monolith is false
 
     - name: Collection repository detected
       ansible.builtin.set_fact:
         init_project_type: collection
-      when: __init_collectionpath_stat.stat.exists is true
+      when:
+        - __init_collection_galaxy_stat.stat.exists is true
+
+    - name: Playbook repository detected
+      ansible.builtin.set_fact:
+        init_project_type: playbook
+      when:
+        - __init_playbook_tasks_stat.stat.exists is true
+        - __init_role_meta_stat.stat.exists is false
+        - __init_monolith is false
 
     - name: Monolith repository detected
       ansible.builtin.set_fact:
         init_project_type: monolith
       when:
         - __init_monolith is true
-        - __init_rolepath_stat.stat.exists is false
+        - __init_role_meta_stat.stat.exists is false
 
 - name: Autodetection succeeded
   ansible.builtin.assert:

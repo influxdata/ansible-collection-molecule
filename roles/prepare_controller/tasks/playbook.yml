@@ -1,0 +1,7 @@
+---
+# Configure molecule to run in the context of a standalone playbook
+
+- name: Standalone playbook configuration
+  ansible.builtin.debug:
+    msg: Make sure that you have run the 'init' role from this collection, or have otherwise set role and collection paths appropriately in Molecule configuration!
+

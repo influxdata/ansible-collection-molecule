@@ -28,7 +28,7 @@
     fail_msg: Specified file path does not exist!
   loop: "{{ __init_filepath_stat.results }}"
   loop_control:
-    label: "{{ __init_item.item }}"
+    label: "{{ __init_item.stat.path }}"
     loop_var: __init_item
 
 - name: Check for secret if specified

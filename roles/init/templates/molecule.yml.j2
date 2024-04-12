@@ -19,6 +19,7 @@ platforms:
     modify_image_buildpath: {{ init_platform.config.modify_image_buildpath }}
 {% endif %}
     privileged: {{ init_platform.config.privileged | default(false) }}
+    hostvars: {}
 {% endif %}
 {% endfor %}
 provisioner:
@@ -38,10 +39,15 @@ provisioner:
 {% if init_ansible_secret_path is truthy %}
       vault_password_file: {{ init_ansible_secret_path }}
 {% endif %}
-{% if __init_monolith %}
+{% if init_project_type == 'monolith' %}
   env:
-    ANSIBLE_ROLES_PATH: ${PWD}/roles:/usr/share/ansible/roles:/etc/ansible/roles:~/.ansible/roles
-    ANSIBLE_COLLECTIONS_PATH: ${PWD}/collections:/usr/share/ansible/collections:~/.ansible/collections
+    ANSIBLE_ROLES_PATH: /usr/share/ansible/roles:/etc/ansible/roles:~/.ansible/roles:${PWD}/roles
+    ANSIBLE_COLLECTIONS_PATH: /usr/share/ansible/collections:~/.ansible/collections:${PWD}/collections
+{% endif %}
+{% if init_project_type == 'playbook' %}
+  env:
+    ANSIBLE_ROLES_PATH: /usr/share/ansible/roles:/etc/ansible/roles:~/.ansible/roles:${PWD}/roles:${PWD}/../roles:${PWD}/../../roles
+    ANSIBLE_COLLECTIONS_PATH: /usr/share/ansible/collections:~/.ansible/collections:${PWD}/collections:${PWD}/../collections:${PWD}/../../collections
 {% endif %}
 scenario:
   create_sequence:

@@ -11,8 +11,11 @@
         docker_platform_image: "{{ item.image }}"
         docker_platform_systemd: "{{ item.systemd | default(false) }}"
         docker_platform_modify_image: "{{ item.modify_image | default(false) }}"
+        docker_platform_modify_image_buildpath: "{{ item.modify_image_buildpath | default(molecule_ephemeral_directory + '/build') }}"
         docker_platform_privileged: "{{ item.privileged | default (false) }}"
+        docker_platform_hostvars: "{{ item.hostvars | default({}) }}"
         docker_platform_state: present
+      when: item.type == 'docker'
       loop: "{{ molecule_yml.platforms }}"
       loop_control:
         label: item.name
@@ -30,4 +33,30 @@
     - name: Display uname info
       ansible.builtin.debug:
         msg: "{{ result.stdout }}"
+
+    - name: Load system facts
+      ansible.builtin.setup:
+        filter:
+          - ansible_service_mgr
+
+    - name: Check on Systemd
+      block:
+        - name: Wait for systemd to complete initialization.
+          ansible.builtin.command: systemctl is-system-running
+          register: systemctl_status
+          until: >
+            'running' in systemctl_status.stdout or
+            'degraded' in systemctl_status.stdout
+          retries: 30
+          delay: 5
+          changed_when: false
+          failed_when: systemctl_status.rc > 1
+
+        - name: Check systemd status
+          ansible.builtin.assert:
+            that:
+              - systemctl_status.stdout == 'running'
+            fail_msg: Systemd-enabled container does not have a healthy Systemd!
+            success_msg: Systemd is running
+      when: ansible_service_mgr == 'systemd'
 

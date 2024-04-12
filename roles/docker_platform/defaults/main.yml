@@ -33,3 +33,7 @@ docker_platform_privileged: false
 # A list of tmpfs filesystem paths to be passed to the container
 docker_platform_tmpfs: []
 
+# Ansible hostvars that should be associated with the ansible test "host" created by this role
+#  stored in the format `name: value`
+docker_platform_hostvars: {}
+

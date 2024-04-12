@@ -3,14 +3,14 @@
 - name: Initialize state
   ansible.builtin.set_fact:
     # Number of times this role has been included during this playbook run
-    __docker_platform_run_count: "{{ __docker_platform_run_count | default(0) + 1 }}"
+    __docker_platform_run_count: "{{ __docker_platform_run_count | default(0) | int + 1 }}"
 
 - name: Load system facts
   ansible.builtin.setup:
     filter:
       - ansible_service_mgr
 
-- name: Create instance docker container
+- name: Create {{ docker_platform_name }} docker container
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/create.yml"
 
 - name: Load existing instance configuration
@@ -26,7 +26,7 @@
         __docker_platform_current_instance_config: "{{ __docker_platform_current_instance_config_b64.content | default('') | b64decode | from_yaml }}"
   when: __docker_platform_run_count | int > 1
 
-- name: Write instance config file
+- name: Write {{ docker_platform_name }} instance config file
   ansible.builtin.copy:
     # This is very basic - just needs an item there to show as managed with docker config
     content: |
@@ -42,7 +42,7 @@
   block:
     - name: Load existing molecule inventory file
       ansible.builtin.slurp:
-        src: "{{ docker_platform_molecule_ephemeral_directory }}/molecule_inventory.yml"
+        src: "{{ docker_platform_molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
       register: __docker_platform_current_molecule_inventory_b64
       ignore_errors: true
 
@@ -51,20 +51,22 @@
         __docker_platform_current_molecule_inventory: "{{ __docker_platform_current_molecule_inventory_b64.content | default({}) | b64decode | from_yaml }}"
   when: __docker_platform_run_count | int > 1
 
-- name: Add container to molecule_inventory
+- name: Add {{ docker_platform_name }} to molecule_inventory
   vars:
+    __docker_platform_inventory_partial_hostvars: "{{ {
+      'ansible_connection': 'community.docker.docker'
+      } | combine(docker_platform_hostvars, recursive=true) }}"
     __docker_platform_inventory_partial_yaml: |
       all:
         children:
           molecule:
             hosts:
-              "{{ docker_platform_name }}":
-                ansible_connection: community.docker.docker
+              "{{ docker_platform_name }}": {{ __docker_platform_inventory_partial_hostvars }}
   ansible.builtin.set_fact:
     __docker_platform_molecule_inventory: >
-      {{ __docker_platform_current_molecule_inventory | default({}) | combine(__docker_platform_inventory_partial_yaml | from_yaml, recursive=true) }}
+      {{ __docker_platform_current_molecule_inventory | from_yaml | default({}) | combine(__docker_platform_inventory_partial_yaml | from_yaml, recursive=true) }}
 
-- name: Write molecule inventory file
+- name: Write {{ docker_platform_name }} to molecule inventory file
   ansible.builtin.copy:
     content: |
       {{ __docker_platform_molecule_inventory | to_yaml }}

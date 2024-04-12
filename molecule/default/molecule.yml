@@ -8,11 +8,27 @@ driver:
     managed: true
     login_cmd_template: 'docker exec -ti {instance} bash'
 platforms:
-  - name: instance
-    image: geerlingguy/docker-${MOLECULE_GEERLINGGUY_DISTRO:-rockylinux9}-ansible:latest
+  - name: docker-rockylinux9
+    type: docker
+    image: geerlingguy/docker-rockylinux9-ansible:latest
     systemd: True
     modify_image: False
     privileged: False
+    hostvars: {}
+  - name: docker-fedora39
+    type: docker
+    image: geerlingguy/docker-fedora39-ansible:latest
+    systemd: True
+    modify_image: False
+    privileged: False
+    hostvars: {}
+  - name: docker-ubuntu2204
+    type: docker
+    image: geerlingguy/docker-ubuntu2204-ansible:latest
+    systemd: True
+    modify_image: False
+    privileged: False
+    hostvars: {}
 provisioner:
   name: ansible
   log: True

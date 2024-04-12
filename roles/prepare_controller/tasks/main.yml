@@ -8,7 +8,7 @@
 - name: Verify project type
   ansible.builtin.assert:
     that:
-      - prepare_controller_project_type is in ['role', 'collection', 'monolith']
+      - prepare_controller_project_type is in ['role', 'collection', 'monolith', 'playbook']
     fail_msg: Unsupported project type specified!
     success_msg: Project type is supported
 
@@ -19,6 +19,10 @@
 - name: Configure controller for collection project type
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/collection.yml"
   when: prepare_controller_project_type == 'collection'
+
+- name: Configure controller for playbook project type
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/playbook.yml"
+  when: prepare_controller_project_type == 'playbook'
 
 - name: Configure controller for monolith project type
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/monolith.yml"

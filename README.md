@@ -8,6 +8,22 @@ It provides tooling to create Molecule testing scenarios via the `init` role, an
 
 When utilizing an image with systemd support (systemd packages are installed, etc.), the `docker_platform` role supports the creation of Docker containers with a functional Systemd implementation, which can be used to test Ansible code that makes use of Systemd services or related functionality.
 
+# Table of Contents
+
+- [Ansible Collection - syndr.molecule](#ansible-collection---syndrmolecule)
+- [What is Molecule?](#what-is-molecule)
+- [Using this collection](#using-this-collection)
+  - [Host Requirements](#host-requirements)
+  - [Project requirements](#project-requirements)
+    - [Standalone roles](#standalone-roles)
+    - [Collections](#collections)
+    - [Monoliths](#monoliths)
+      - [Testing roles and playbooks within a monolithic project](#testing-roles-and-playbooks-within-a-monolithic-project)
+    - [Playbooks](#playbooks)
+- [Using Molecule](#using-molecule)
+  - [Ansible Tags](#ansible-tags)
+- [Contributing](#contributing)
+
 # What is Molecule?
 
 > Molecule project is designed to aid in the development and testing of Ansible roles.
@@ -26,6 +42,8 @@ Some resources on Molecule can be found here:
 > This [RedHat article](https://developers.redhat.com/articles/2023/09/13/introducing-ansible-molecule-ansible-automation-platform#) has some more information on this change.
 >
 > When reading the above referenced articles, keep in mind their publishing dates, and that there may have been breaking changes to Molecule's functionality since that time!
+
+More tips on using Molecule can be found [below](#using-molecule).
 
 # Using this collection
 
@@ -65,9 +83,10 @@ Docker CE can be installed by following the appropriate [installation instructio
 The `init` role from this collection will attempt to discover what type of project it is being utilized in. This is enabled by setting the `init_project_type` configuration variable to `auto`. The project type can also be explicitly specified if this is desired.
 
 Supported project types:  
-* `role`
 * `collection`
 * `monolith`
+* `playbook`
+* `role`
 
 When used with a role or collection, the Galaxy meta information for the role must be configured!
 
@@ -188,9 +207,6 @@ ansible-playbook molecule/role-$ROLE_NAME/init.yml
 
 Note that in this circumstance, you will need to specify the scenario name in order to run molecule against it (as it is not named `default`).
 
-> [!WARNING]  
-> Creating more than one `default` scenario within a repository (IE: within individual roles) will cause Molecule to fail to run at the outer project level!
-
 Running the `molecule list` command will provide you an overview of the available scenarios
 
 ```bash
@@ -202,6 +218,7 @@ INFO     Running pb-example_playbook > list
   docker-rockylinux9 │ default     │ ansible          │ pb-example_playbook │ false   │ false      
                      ╵             ╵                  ╵                     ╵         ╵
 ```
+
 
 And running the full test suite for this playbook would be done as:
 
@@ -216,7 +233,64 @@ molecule converge -s pb-example_playbook
 ```
 
 > [!TIP]  
-> The `molecule list` command will show multiple scenarios when run in the root of a monolithic project that also has molecule configured on individual playbooks or roles contained within it. Note that you will, however, still need to be in the appropriate role or playbook directory in order to successfully run these scenarios!
+> The `molecule list` command will show multiple scenarios when run in the root of a monolithic project that also has molecule configured on individual playbooks or roles contained within it. Note that you will, however, still need to be in the appropriate role or playbook directory in order to successfully run these!
+
+### Playbooks
+
+Playbook configurations are similar to the `monolith` project type noted above, and are typically contained within monolithic projects. A project directory is considered a playbook if it contains a `tasks/` folder, but no role `meta/main.yml` configuration, and no `playbooks/` subdirectory.
+
+A playbook project configuration may look like:
+
+```
+playbooks
+├── your_playbook
+│   ├── main.yml
+│   ├── README.md
+│   ├── tasks
+│   │   ├── asserts.yml
+│   │   ├── main.yml
+│   │   └── standard.yml
+│   └── vars
+└── [...]
+```
+
+Playbook configuration adds the following directories to the role path configuration (paths relative to the playbook `main.yml` or equivilant file):
+
+* `./roles`
+* `./../roles`
+* `./../../roles`
+
+It also adds the following directories to the collection path configuration (paths relative to the playbook `main.yml` or equivilant file):
+* `./collections`
+* `./../collections`
+* `./../../collections`
+
+# Using Molecule
+
+The most common Molecule commands that you will likely use are:
+
+```bash
+molecule create     # Create the test infrastructure, as defined in molecule.yml
+molecule converge   # Run the plays from converge.yml (launch your role/playbook)
+molecule verify     # Run the plays from verify.yml (test for desired state)
+molecule test       # Run the full test sequence
+```
+
+## Ansible Tags
+
+If [tags](https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_tags.html) are used in your code to enable/disable certian functionality, they must be specified on the command line when running Molecule commands. To do so, use the `--` [command line option](https://ansible.readthedocs.io/projects/molecule/usage/#test-sequence-commands) to pass commands through to `ansible-playbook`.
+
+For example:
+
+```bash
+molecule test -- --tags the-cheese
+```
+
+Or running `converge` using a non-default scenario:
+
+```bash
+molecule converge -s pb-the_toaster -- --tags sourdough
+```
 
 # Contributing
 

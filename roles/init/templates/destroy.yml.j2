@@ -6,8 +6,10 @@
   tasks:
     - name: Remove platform
       ansible.builtin.include_role:
-        name: influxdata.molecule.docker_platform
+        name: {{ ansible_collection_name }}.docker_platform
       vars:
+{% raw %}
         docker_platform_name: "{{ inventory_hostname }}"
         docker_platform_state: absent
+{% endraw %}
 

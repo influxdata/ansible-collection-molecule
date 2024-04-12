@@ -2,6 +2,7 @@
 
 - name: Prepare controller for execution
   hosts: localhost
+  tags: always
   tasks:
     - name: Configure for standalone role testing
       ansible.builtin.include_role:
@@ -11,10 +12,50 @@
 
 - name: Prepare target host for execution
   hosts: molecule
+  tags: always
   tasks:
-    - name: Add your host preparation tasks here!
-      ansible.builtin.debug:
-        msg: "IE: adding system users, installing required packages, etc."
+    ##
+    # Creating an admin service account for Molecule/Ansible to use for testing
+    #
+    #   - If you run Ansible as a service account (you should) on your hosts and
+    #     not as root, it is wise to also test as a non-root user!
+    #
+    #   - To use this account, add the following to any plays targeting test
+    #     infrastructure (such as in converge.yml):
+    #
+    #         vars:
+    #           ansible_user: molecule_runner
+    ##
+{% raw %}
+    - name: Create ansible service account
+      vars:
+        molecule_user: molecule_runner
+      block:
+        - name: Create ansible group
+          ansible.builtin.group:
+            name: "{{ molecule_user }}"
+
+        - name: Create ansible user
+          ansible.builtin.user:
+            name: "{{ molecule_user }}"
+            group: "{{ molecule_user }}"
+
+        - name: Sudoers.d directory exists
+          ansible.builtin.file:
+            path: /etc/sudoers.d
+            state: directory
+            owner: root
+            group: root
+            mode: 0751
+
+        - name: Ansible user has sudo
+          ansible.builtin.copy:
+            content: |
+              {{ molecule_user }}  ALL=(ALL)  NOPASSWD: ALL
+            dest: /etc/sudoers.d/ansible
+            owner: root
+            group: root
+            mode: 0600
 
     - name: "Save vars to host (IE: generated test credentials, etc.)"
       become: true
@@ -25,9 +66,8 @@
             state: directory
             owner: root
             group: root
-            mode: 0744
+            mode: 0755
 
-{% raw %}
         - name: Persistent data saved to local Ansible facts
           ansible.builtin.copy:
             dest: /etc/ansible/facts.d/molecule.fact
@@ -36,4 +76,8 @@
             group: root
             mode: 0644
 {% endraw %}
+
+    - name: Add your host preparation tasks here!
+      ansible.builtin.debug:
+        msg: "IE: adding system users, installing required packages, etc."
 
