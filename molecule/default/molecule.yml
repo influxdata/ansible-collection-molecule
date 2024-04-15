@@ -14,21 +14,24 @@ platforms:
     systemd: True
     modify_image: False
     privileged: False
-    hostvars: {}
+    hostvars:
+      test_hostvar: test
   - name: docker-fedora39
     type: docker
     image: geerlingguy/docker-fedora39-ansible:latest
     systemd: True
     modify_image: False
     privileged: False
-    hostvars: {}
+    hostvars:
+      test_hostvar: test
   - name: docker-ubuntu2204
     type: docker
     image: geerlingguy/docker-ubuntu2204-ansible:latest
     systemd: True
     modify_image: False
     privileged: False
-    hostvars: {}
+    hostvars:
+      test_hostvar: test
 provisioner:
   name: ansible
   log: True

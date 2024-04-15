@@ -4,18 +4,10 @@
 - name: Verify
   hosts: molecule
   tasks:
-    - name: Load local host facts
-      ansible.builtin.setup:
-        gather_subset:
-          - '!all'
-          - '!min'
-          - local
-
-    - name: Load test data (example)
-      ansible.builtin.set_fact:
-        test_prepare_fact: "{{ ansible_local.molecule.test_prepare_fact }}"
-
-    - name: Add your verification tasks here
-      ansible.builtin.debug:
-        msg: "IE: For a 'users' role, check that the test user exists"
+    - name: Test hostvar exists
+      ansible.builtin.assert:
+        that:
+          - test_hostvar == "test"
+        fail_msg: "Custom hostvar not found! Possible issue with storing user-defined hostvars!"
+        success_msg: "Custom hostvar found!"
 

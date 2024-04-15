@@ -7,7 +7,7 @@
       ansible.builtin.slurp:
         src: "{{ platform_molecule_ephemeral_directory }}/instance_config.yml"
       register: __platform_current_instance_config_b64
-      ignore_errors: true
+      failed_when: false
 
     - name: Decode instance configuration data
       ansible.builtin.set_fact:
@@ -54,15 +54,32 @@
         fail_msg: "Instance configuration for {{ platform_name }} failed! Check the platform configuration."
         success_msg: "Instance configuration for {{ platform_name }} is defined"
 
+    - name: Add user-specified hostvars to instance configuration
+      when:
+        - platform_molecule_cfg.hostvars is defined
+        - platform_molecule_cfg.hostvars is truthy
+      ansible.builtin.set_fact:
+        __platform_ansible_hostvars: "{{ __platform_ansible_hostvars | combine(platform_molecule_cfg.hostvars, recursive=true) }}"
+
     - name: 🪲 Current instance config
       ansible.builtin.debug:
         var: __platform_current_instance_config
         verbosity: 1
 
+    - name: 🪲 New instance config
+      ansible.builtin.debug:
+        var: __platform_new_instance_config
+        verbosity: 1
+
+    - name: 🪲 Ansible hostvars
+      ansible.builtin.debug:
+        var: __platform_ansible_hostvars
+        verbosity: 1
+
     - name: Instance name matching this already exists in configuration
       when:
         - __platform_current_instance_config is truthy
-        - platform_name in __platform_current_instance_config | map(attribute='instance') | list 
+        - platform_name in __platform_current_instance_config | map(attribute='instance') | list
       block:
         - name: Mark config update as unneeded
           ansible.builtin.set_fact:
@@ -88,16 +105,6 @@
         __platform_current_instance_config: "{{
           __platform_current_instance_config | rejectattr('instance', 'equalto', platform_name) | list }}"
         __platform_instance_config_update_needed: true
-
-- name: dump new instance config
-  ansible.builtin.debug:
-    var: __platform_new_instance_config
-  ignore_errors: true
-
-- name: dump current instance config
-  ansible.builtin.debug:
-    var: __platform_current_instance_config
-  ignore_errors: true
 
 - name: Write {{ platform_name }} instance config file
   when:
@@ -130,7 +137,7 @@
       ansible.builtin.slurp:
         src: "{{ platform_molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
       register: __platform_current_molecule_inventory_b64
-      ignore_errors: true
+      failed_when: false
 
     - name: Decode instance configuration data
       ansible.builtin.set_fact:
