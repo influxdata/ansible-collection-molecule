@@ -14,12 +14,12 @@
     - name: Build base docker platform definition
       when: init_platform_type == 'docker'
       ansible.builtin.set_fact:
-        init_platforms: "{{ init_platforms | default(init_platform_defaults.docker) }}"
+        init_platforms: "{{ init_platforms | default(init_platform_defaults.docker, true) }}"
 
     - name: Build base ec2 platform definition
       when: init_platform_type == 'ec2'
       ansible.builtin.set_fact:
-        init_platforms: "{{ init_platforms | default(init_platform_defaults.ec2) }}"
+        init_platforms: "{{ init_platforms | default(init_platform_defaults.ec2, true) }}"
 
     - name: Platform definition is valid
       ansible.builtin.assert:
