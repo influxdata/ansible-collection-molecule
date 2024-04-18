@@ -10,30 +10,16 @@
 
 - name: Build base platform definition
   when: init_platforms is not truthy
-  # TODO: Define these values in the role defaults
   block:
     - name: Build base docker platform definition
       when: init_platform_type == 'docker'
       ansible.builtin.set_fact:
-        init_platforms:
-          - name: docker-rockylinux9
-            type: docker
-            config:
-              image: "geerlingguy/docker-rockylinux9-ansible:latest"
-              systemd: true
+        init_platforms: "{{ init_platforms | default(init_platform_defaults.docker) }}"
 
     - name: Build base ec2 platform definition
       when: init_platform_type == 'ec2'
       ansible.builtin.set_fact:
-        init_platforms:
-          - name: ec2-rockylinux9
-            type: ec2
-            config:
-              image: "ami-067daee80a6d36ac0"
-              instance_type: "t3.micro"
-              region: "us-east-2"
-              vpc_id: "vpc-12345678"
-              vpc_subnet_id: "subnet-12345678"
+        init_platforms: "{{ init_platforms | default(init_platform_defaults.ec2) }}"
 
     - name: Platform definition is valid
       ansible.builtin.assert:
