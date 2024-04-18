@@ -10,7 +10,7 @@ init_platform_type: docker
 
 # Version of this collection that should be used by the Molecule test
 # - Set to "" to attempt to use the running version
-init_collection_version: ""
+init_collection_version: latest
 
 # Source of the collection that this role is part of (galaxy, git)
 init_collection_source: git

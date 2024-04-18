@@ -13,7 +13,6 @@
 - name: Prepare target host for execution
   hosts: molecule
   tags: always
-  become: true
   tasks:
     ##
     # Creating an admin service account for Molecule/Ansible to use for testing
@@ -29,6 +28,7 @@
     ##
 {% raw %}
     - name: Create ansible service account
+      become: true
       vars:
         molecule_user: molecule_runner
       block:
