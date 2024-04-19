@@ -35,11 +35,13 @@ provisioner:
   name: ansible
   log: True
   playbooks:
+    create: create.yml
     prepare: prepare.yml
     converge: converge.yml
     side_effect: side_effect.yml
     verify: verify.yml
     cleanup: cleanup.yml
+    destroy: destroy.yml
   config_options:
     defaults:
       gathering: explicit

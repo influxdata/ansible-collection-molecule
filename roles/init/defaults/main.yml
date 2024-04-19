@@ -10,7 +10,7 @@ init_platform_type: docker
 
 # Version of this collection that should be used by the Molecule test
 # - Set to "" to attempt to use the running version
-init_collection_version: ""
+init_collection_version: latest
 
 # Source of the collection that this role is part of (galaxy, git)
 init_collection_source: git
@@ -42,6 +42,24 @@ init_platforms: []
 # Create backups of any files that would be clobbered by running this role
 init_file_backup: true
 
+# Default configuration to be added to generated molecule.yml if init_platforms is not defined
+init_platform_defaults:
+  docker:
+    - name: docker-rockylinux9
+      type: docker
+      config:
+        image: "geerlingguy/docker-rockylinux9-ansible:latest"
+        systemd: true
+  ec2:
+    - name: ec2-rockylinux9
+      type: ec2
+      config:
+        image: "ami-067daee80a6d36ac0"
+        instance_type: "t3.micro"
+        region: "us-east-2"
+        vpc_id: "vpc-12345678"
+        vpc_subnet_id: "subnet-12345678"
+
 # Path to the ansible secret file that should be used by the Molecule test
 #  - Variable substitution can be used as described here: https://ansible.readthedocs.io/projects/molecule/configuration/#variable-substitution
 #  - Set to "" to disable
@@ -49,8 +67,8 @@ init_ansible_secret_path: ""
 
 # Configuration defaults to be used if the collection manifest is not accessible
 init_collection_defaults:
-  repository: https://github.com/syndr/ansible-collection-molecule
+  repository: https://github.com/influxdata/ansible-collection-molecule
   name: molecule
-  namespace: syndr
+  namespace: influxdata
   version: latest
 

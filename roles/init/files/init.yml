@@ -12,4 +12,7 @@
         init_platform_type: docker
         # Supported collection sources are: git, galaxy
         init_collection_source: git
+        # Version of this collection that should be used by the Molecule test
+        # - Set to "" to attempt to use the running version
+        init_collection_version: latest
 
