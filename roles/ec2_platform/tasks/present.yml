@@ -91,6 +91,8 @@
     description: "{{ ec2_platform.security_group_description }}"
     rules: "{{ ec2_platform.security_group_rules }}"
     rules_egress: "{{ ec2_platform.security_group_rules_egress }}"
+    tags:
+      Name: "{{ ec2_platform.security_group_name }}"
   vars:
     vpc_subnet: "{{ __ec2_platform_subnet_info.results[0].subnets[0] }}"
   when: ec2_platform.security_groups | length == 0
