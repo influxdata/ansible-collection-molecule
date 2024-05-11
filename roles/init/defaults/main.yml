@@ -59,6 +59,18 @@ init_platform_defaults:
         region: "us-east-2"
         vpc_id: "vpc-12345678"
         vpc_subnet_id: "subnet-12345678"
+  potato:
+    - name: potato-influxdb-cluster
+      type: potato
+      config:
+        potato_address: "http://potato.example.com"
+        vpc_id: "vpc-12345678"
+        influxdb_cluster_config:
+          region: us-west-2
+          username: influxdb-admin
+          password: supersecretpassword
+          init: latest
+          config_tag: 1.23.4.5-staging-pro
 
 # Path to the ansible secret file that should be used by the Molecule test
 #  - Variable substitution can be used as described here: https://ansible.readthedocs.io/projects/molecule/configuration/#variable-substitution

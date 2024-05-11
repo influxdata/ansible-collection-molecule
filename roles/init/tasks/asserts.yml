@@ -8,7 +8,7 @@
       - init_scenario_dir is string
       - init_project_dir is string
       - init_file_backup in [true, false]
-      - init_platform_type in ['docker', 'ec2']
+      - init_platform_type in ['docker', 'ec2', 'potato']
       - init_collection_version is string
       - init_collection_source in ['galaxy', 'git']
     fail_msg: Global configuration option for init role is not sane
@@ -29,6 +29,7 @@
     that:
       - __init_item.stat.exists is true
     fail_msg: Specified file path does not exist!
+    quiet: true
   loop: "{{ __init_filepath_stat.results }}"
   loop_control:
     label: "{{ __init_item.stat.path }}"

@@ -8,7 +8,7 @@
       ansible.builtin.include_role:
         name: influxdata.molecule.init
       vars:
-        # Supported platform types are: docker, ec2
+        # Supported platform types are: docker, ec2, potato
         init_platform_type: docker
         # Supported collection sources are: git, galaxy
         init_collection_source: git

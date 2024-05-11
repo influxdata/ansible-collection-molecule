@@ -8,7 +8,7 @@
       ansible.builtin.include_role:
         name: {{ ansible_collection_name }}.platform
       vars:
-{% raw %}
+{%- raw %}
         platform_name: "{{ item.name }}"
         platform_state: absent
         platform_type: "{{ item.type }}"
@@ -16,5 +16,5 @@
       loop: "{{ molecule_yml.platforms }}"
       loop_control:
         label: item.name
-{% endraw %}
+{%- endraw %}
 
