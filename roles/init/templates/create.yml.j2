@@ -52,7 +52,7 @@
           ansible.builtin.assert:
             that:
               - systemctl_status.stdout == 'running'
-            fail_msg: Systemd-enabled container does not have a healthy Systemd!
+            fail_msg: Systemd-enabled host does not have a healthy Systemd!
             success_msg: Systemd is running
       when: ansible_service_mgr == 'systemd'
 

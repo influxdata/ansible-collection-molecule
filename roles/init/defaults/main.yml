@@ -4,7 +4,7 @@
 # The type of project that this Molecule configuration will be integrated into
 init_project_type: auto
 
-# The type of platform that this Molecule configuration will be testing on (docker, ec2)
+# The type of platform that this Molecule configuration will be testing on (docker, ec2, potato)
 # WARN: mixing platform types is not supported!
 init_platform_type: docker
 

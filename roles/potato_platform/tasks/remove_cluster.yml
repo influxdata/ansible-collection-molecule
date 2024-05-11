@@ -1,0 +1,65 @@
+---
+# Remove a Potato test cluster
+
+- name: Validate configuration data
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
+
+- name: Look up subnets to determine VPCs (if needed)
+  amazon.aws.potato_vpc_subnet_info:
+    subnet_ids: "{{ __potato_platform_cfg.vpc_subnet_id }}"
+  when: not __potato_platform_cfg.vpc_id
+  register: __potato_platform_subnet_info
+
+- name: Validate discovered information
+  ansible.builtin.assert:
+    that:
+      - __potato_platform_cfg.vpc_id or (__potato_platform_subnet_info.results[0].subnets | length > 0)
+    quiet: true
+
+- name: Search for existing EC2 instances
+  amazon.aws.ec2_instance_info:
+    profile: "{{ __potato_platform_cfg.aws_profile | default(omit) }}"
+    region: "{{ __potato_platform_cfg.region }}"
+    filters:
+      "tag:molecule-run-id": "{{ __potato_platform_run_config.run_id }}"
+  register: __potato_platform_ec2_instances
+
+- name: Terminate Potato cluster
+  when: __potato_platform_ec2_instances.instances | length > 0
+  block:
+    - name: 🥔 Terminate InfluxDB Enterprise cluster
+      ansible.builtin.uri:
+        url: "{{ potato_platform_url }}/clusters/{{ __potato_platform_ec2_instances.instances[0].tags.ClusterID }}"
+        method: PATCH
+        user: "{{ potato_platform_api_creds.username }}"
+        password: "{{ potato_platform_api_creds.password }}"
+        body_format: json
+        body:
+          machines_status: terminated
+      register: __potato_platform_cluster_termination_potato_response
+
+    - name: Wait for Potato to mark cluster as terminated
+      ansible.builtin.uri:
+        url: "{{ potato_platform_url }}/clusters/{{ __potato_platform_ec2_instances.instances[0].tags.ClusterID }}"
+        method: GET
+        user: "{{ potato_platform_api_creds.username }}"
+        password: "{{ potato_platform_api_creds.password }}"
+      register: __potato_platform_cluster_termination_potato_response
+      until: __potato_platform_cluster_termination_potato_response.json.machines_status == "terminated"
+      retries: "{{ potato_platform_creation_retries | int / 10 }}"
+      delay: 10
+
+- name: Destroy ephemeral security groups (if needed)
+  amazon.aws.ec2_security_group:
+    profile: "{{ __potato_platform_cfg.aws_profile | default(omit) }}"
+    region: "{{ __potato_platform_cfg.region | default(omit) }}"
+    vpc_id: "{{ __potato_platform_cfg.vpc_id or __potato_platform_cfg.subnets[0] }}"
+    name: "{{ __potato_platform_cfg.security_group_name }}"
+    state: absent
+  when: __potato_platform_cfg.security_groups | length == 0
+
+- name: Remove ec2 instance config file
+  ansible.builtin.file:
+    path: "{{ potato_platform_run_config_path }}"
+    state: absent
+
