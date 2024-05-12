@@ -5,7 +5,6 @@
 # Values that can be set in the molecule.yml platform definition
 potato_platform_defaults:
   aws_profile: "{{ potato_platform_default_aws_profile }}"
-  key_name: "{{ potato_platform_default_key_name }}"
   private_key_source_path: "{{ potato_platform_default_private_key_source_path }}"
   private_key_path: "{{ potato_platform_default_private_key_path }}"
   public_key_path: "{{ potato_platform_default_public_key_path }}"
@@ -17,6 +16,7 @@ potato_platform_defaults:
   ssh_port: "{{ potato_platform_default_ssh_port }}"
   ignore_potato_machines_status: "{{ potato_platform_default_ignore_potato_machines_status }}"
   boot_wait_seconds: "{{ potato_platform_default_boot_wait_seconds }}"
+  creation_timeout: "{{ potato_platform_default_creation_timeout }}"
   name: ""
   region: ""
   security_groups: []
@@ -30,8 +30,6 @@ potato_platform_creation_request_defaults:
   block_device:
     delete_on_termination: true
   config_tag: "{{ potato_platform_config_tag }}"
-  ami: "{{ potato_platform_ami }}"
-  boot_wait_seconds: "{{ potato_platform_default_boot_wait_seconds }}"
   data_disk_size: "{{ potato_platform_data_disk_size }}"
   data_instance_type: "{{ potato_platform_data_instance_type }}"
   data_node_count: "{{ potato_platform_data_node_count }}"
@@ -44,5 +42,5 @@ potato_platform_creation_request_defaults:
   password: "{{ potato_platform_password }}"
   version: '2'
   init: "{{ potato_platform_init_template }}"
-  tags: "{{ poato_platform_aws_tags }}"
+  tags: "{{ potato_platform_aws_tags }}"
 

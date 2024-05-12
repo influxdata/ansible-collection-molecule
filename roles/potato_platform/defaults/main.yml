@@ -29,11 +29,11 @@ potato_platform_url: "{{ potato_platform_potato_address }}/v1/potato"
 
 # Basic auth credentials for Potato access
 potato_platform_api_creds:
-  username:
-  password:
+  username: "{{ lookup('env', 'POTATO_API_USERNAME') }}"
+  password: "{{ lookup('env', 'POTATO_API_PASSWORD') }}"
 
 # How long to wait for the cluster to be created
-potato_platform_creation_timeout: 600
+potato_platform_default_creation_timeout: 600
 
 # How long to wait for a host to boot after initial SSH connectivity
 potato_platform_default_boot_wait_seconds: 30
@@ -48,7 +48,7 @@ potato_platform_default_ignore_potato_machines_status: false
 # Access to AWS is required in order to allow access to the cluster hosts by Molecule
 
 # AWS profile to use for authentication
-potato_platfrom_aws_profile: "{{ lookup('env', 'AWS_PROFILE') }}"
+potato_platform_default_aws_profile: "{{ lookup('env', 'AWS_PROFILE') }}"
 
 # The path on the controller to the private key to use for SSH access
 # NOTE: This key is managed outside of Molecule (IE: by Potato), and must be provided to Molecule
@@ -89,9 +89,6 @@ potato_platform_config_tag: 1.11.5-prod-pro
 
 # The init template to be applied via cloud-config to each node in the new cluster
 potato_platform_init_template: latest
-
-# AMI to use for the new cluster
-potato_platform_ami: ami-089313d40efd067a9
 
 # AWS region in which to deploy the new cluster
 potato_platform_aws_region: us-west-2

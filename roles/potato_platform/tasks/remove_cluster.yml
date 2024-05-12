@@ -5,7 +5,7 @@
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
 
 - name: Look up subnets to determine VPCs (if needed)
-  amazon.aws.potato_vpc_subnet_info:
+  amazon.aws.ec2_vpc_subnet_info:
     subnet_ids: "{{ __potato_platform_cfg.vpc_subnet_id }}"
   when: not __potato_platform_cfg.vpc_id
   register: __potato_platform_subnet_info
@@ -17,11 +17,19 @@
     quiet: true
 
 - name: Search for existing EC2 instances
+  vars:
+    __potato_platform_ec2_valid_statuses:
+      - pending
+      - running
+      - shutting-down
+      - stopped
+      - stopping
   amazon.aws.ec2_instance_info:
     profile: "{{ __potato_platform_cfg.aws_profile | default(omit) }}"
     region: "{{ __potato_platform_cfg.region }}"
     filters:
-      "tag:molecule-run-id": "{{ __potato_platform_run_config.run_id }}"
+      "tag:molecule-run-id": "{{ potato_platform_run_config.run_id }}"
+      instance-state-name: "{{ __potato_platform_ec2_valid_statuses }}"
   register: __potato_platform_ec2_instances
 
 - name: Terminate Potato cluster
@@ -36,6 +44,7 @@
         body_format: json
         body:
           machines_status: terminated
+        status_code: 204
       register: __potato_platform_cluster_termination_potato_response
 
     - name: Wait for Potato to mark cluster as terminated
@@ -46,7 +55,7 @@
         password: "{{ potato_platform_api_creds.password }}"
       register: __potato_platform_cluster_termination_potato_response
       until: __potato_platform_cluster_termination_potato_response.json.machines_status == "terminated"
-      retries: "{{ potato_platform_creation_retries | int / 10 }}"
+      retries: "{{ (__potato_platform_cfg.creation_timeout | int / 10) | int }}"
       delay: 10
 
 - name: Destroy ephemeral security groups (if needed)
@@ -57,6 +66,11 @@
     name: "{{ __potato_platform_cfg.security_group_name }}"
     state: absent
   when: __potato_platform_cfg.security_groups | length == 0
+
+- name: Remove ssh key file
+  ansible.builtin.file:
+    path: "{{ __potato_platform_cfg.private_key_path }}"
+    state: absent
 
 - name: Remove ec2 instance config file
   ansible.builtin.file:

@@ -44,7 +44,4 @@
     potato_platform_state: present
     potato_platform_definition: "{{ platform_molecule_cfg }}"
     potato_platform_potato_address: "{{ platform_molecule_cfg.potato_address }}"
-    potato_platform_api_creds:
-      username: "{{ lookup('env', 'POTATO_API_USERNAME') | default(potato_platform_potato_username) }}"
-      password: "{{ lookup('env', 'POTATO_API_PASSWORD') | default(potato_platform_potato_password) }}"
 

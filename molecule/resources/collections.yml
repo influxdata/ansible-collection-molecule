@@ -3,7 +3,9 @@
 collections:
   - name: community.general
   - name: community.docker
-  - name: git+https://github.com/influxdata/ansible-collection-molecule.git
-    type: git
-    version: latest
+  #- name: git+https://github.com/influxdata/ansible-collection-molecule.git
+  #  type: git
+  #  version: latest
+  - name: influxdata.molecule
+    version: 1.4.2-dev
 

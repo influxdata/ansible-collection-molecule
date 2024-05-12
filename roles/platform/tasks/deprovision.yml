@@ -31,4 +31,5 @@
     potato_platform_name: "{{ platform_name }}"
     potato_platform_state: absent
     potato_platform_definition: "{{ platform_molecule_cfg }}"
+    potato_platform_potato_address: "{{ platform_molecule_cfg.potato_address }}"
 

@@ -1,0 +1,7 @@
+---
+
+collections:
+  - name: community.docker
+  - name: influxdata.molecule
+    version: 1.4.2-dev
+

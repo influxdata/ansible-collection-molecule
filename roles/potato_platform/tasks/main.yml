@@ -15,9 +15,14 @@
     __potato_platform_potato_cluster_cfg: "{{ potato_platform_creation_request_defaults |
                                           combine(__potato_platform_cfg.influxdb_cluster_cfg | default({})) }}"
 
-- name: 🦋 Show potato_platform
+- name: 🦋 Show potato_platform role configuration
   ansible.builtin.debug:
     var: __potato_platform_cfg
+    verbosity: 1
+
+- name: 🦋 Show Potato InfluxDB cluster creation configuration
+  ansible.builtin.debug:
+    var: __potato_platform_potato_cluster_cfg
     verbosity: 1
 
 - name: Platform is deployed
