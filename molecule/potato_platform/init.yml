@@ -1,0 +1,29 @@
+---
+# Initialize a Molecule scenario for use within a role
+
+- name: Provision file structure
+  hosts: localhost
+  tasks:
+    - name: Launch provisioner
+      ansible.builtin.include_role:
+        name: influxdata.molecule.init
+      vars:
+        # Supported platform types are: docker, ec2, potato
+        init_platform_type: potato
+        # Supported collection sources are: git, galaxy
+        init_collection_source: galaxy
+        # Version of this collection that should be used by the Molecule test
+        # - Set to "" to attempt to use the running version
+        init_collection_version: ""
+        init_platforms:
+          - name: potato-platform-test
+            type: potato
+            config:
+              potato_address: https://potato.a.influxcloud.us/v1/potato
+              vpc_id: vpc-07bd460b98a3fb162
+              influxdb_cluster_config:
+                username: test-ci-admin
+                password: ku4kQePLTI6RBYtq0KuY
+                init: latest
+                config_tag: 1.11.6.1-staging-pro
+

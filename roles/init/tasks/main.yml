@@ -21,6 +21,11 @@
       ansible.builtin.set_fact:
         init_platforms: "{{ init_platforms | default(init_platform_defaults.ec2, true) }}"
 
+    - name: Build base potato platform definition
+      when: init_platform_type == 'potato'
+      ansible.builtin.set_fact:
+        init_platforms: "{{ init_platforms | default(init_platform_defaults.potato, true) }}"
+
     - name: Platform definition is valid
       ansible.builtin.assert:
         that:
@@ -56,9 +61,9 @@
 
 - name: Set collection information
   ansible.builtin.set_fact:
-    init_collection_version: >-
-      "{{ init_collection_version if init_collection_version is truthy
-      else __init_collection_meta.collection_info.version | default(init_collection_defaults.version) }}"
+    __init_collection_version: >-
+      {{ init_collection_version if init_collection_version is truthy
+      else __init_collection_meta.collection_info.version | default(init_collection_defaults.version) }}
     __init_collection_name: "{{ __init_collection_meta.collection_info.name | default(init_collection_defaults.name) }}"
     __init_collection_namespace: "{{ __init_collection_meta.collection_info.namespace | default(init_collection_defaults.namespace) }}"
     __init_collection_repository: "{{ __init_collection_meta.collection_info.repository | default(init_collection_defaults.repository) }}"

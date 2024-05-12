@@ -5,9 +5,9 @@ collections:
 {% if init_collection_source == 'git' %}
   - name: git+{{ __init_collection_repository }}.git
     type: git
-    version: v{{ init_collection_version }}
+    version: v{{ __init_collection_version }}
 {% elif init_collection_source == 'galaxy' %}
   - name: {{ __init_collection_namespace }}.{{ __init_collection_name }}
-    version: {{ init_collection_version }}
+    version: {{ __init_collection_version }}
 {% endif %}
 

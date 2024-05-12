@@ -1,0 +1,28 @@
+---
+
+- name: Prepare controller for execution
+  hosts: localhost
+  tags: always
+  tasks:
+    - name: Configure for standalone role testing
+      ansible.builtin.include_role:
+        name: influxdata.molecule.prepare_controller
+      vars:
+        prepare_controller_project_type: collection
+
+- name: Prepare target host for execution
+  hosts: molecule
+  tags: always
+  tasks:
+    # This test is just making sure that the target host is up and running (and accessible)
+    # This should mean that the provisioner worked
+
+    - name: Check uname
+      ansible.builtin.raw: uname -a
+      register: result
+      changed_when: false
+
+    - name: Display uname info
+      ansible.builtin.debug:
+        msg: "{{ result.stdout }}"
+

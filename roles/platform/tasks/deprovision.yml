@@ -23,3 +23,13 @@
     ec2_platform_state: absent
     ec2_platform_definition: "{{ platform_molecule_cfg }}"
 
+- name: Remove potato-type platform
+  when: platform_type == 'potato'
+  ansible.builtin.include_role:
+    name: "{{ ansible_collection_name }}.potato_platform"
+  vars:
+    potato_platform_name: "{{ platform_name }}"
+    potato_platform_state: absent
+    potato_platform_definition: "{{ platform_molecule_cfg }}"
+    potato_platform_potato_address: "{{ platform_molecule_cfg.potato_address }}"
+
