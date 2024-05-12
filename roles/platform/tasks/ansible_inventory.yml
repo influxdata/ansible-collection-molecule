@@ -32,9 +32,11 @@
           'molecule': {
             'hosts': {
               __platform_target_instance_config.instance: __platform_ansible_hostvars[__platform_target_instance_config.instance]
+                | combine(platform_molecule_cfg.hostvars | default({}))
           }}}}} }}"
   ansible.builtin.set_fact:
-    __platform_molecule_inventory: "{{ __platform_molecule_inventory | from_yaml | default({}) | combine(__platform_molecule_inventory_partial, recursive=true) }}"
+    __platform_molecule_inventory: "{{ __platform_molecule_inventory | from_yaml | default({})
+      | combine(__platform_molecule_inventory_partial, recursive=true) }}"
 
 - name: Host does not exist in inventory file
   when:

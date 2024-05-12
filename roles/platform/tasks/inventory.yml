@@ -32,9 +32,9 @@
           } } }}"
 
     - name: Generate data for potato instance type
+      when: platform_type == 'potato'
       block:
         - name: Generate {{ platform_name }} instance configuration (Potato)
-          when: platform_type == 'potato'
           ansible.builtin.set_fact:
             # NOTE: This depends on potato_platform_instance_configs (list) being set by the potato_platform role
             __platform_new_instance_configs: "{{ potato_platform_instance_configs }}"

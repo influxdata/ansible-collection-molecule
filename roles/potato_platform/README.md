@@ -9,12 +9,15 @@ The following options are required:
 
 - `name`: The name of the platform
 - `type: potato`
+- `ssh_user`: The SSH user to use for connecting to the instance (string)
+- `ssh_port`: The SSH port to use for connecting to the instance (integer)
+- `influxdb_cluster_config`: The configuration to be passed to the Potato orchestrator to create the InfluxDB cluster (dictionary)
+  - Configuration options are found in the [Potato API documentation](https://github.com/influxdata/potato/blob/master/swagger.yml).
+- `private_key_source_path`: The path to the ssh key to use for host access (if different from "{{ playbook_dir }}/files/id_rsa") (string)
 
 The following options are optional:
 
 - `potato_address`: The URL to use for the Potato orchestrator (string, do not include the `/v1/potato` path)
-- `influxdb_cluster_config`: The configuration to be passed to the Potato orchestrator to create the InfluxDB cluster (dictionary)
-  - Configuration options are found in the [Potato API documentation](https://github.com/influxdata/potato/blob/master/swagger.yml).
 - `private_key_source_path`: The path to the (existing) private key to use for SSH access to the InfluxDB Enterprise nodes
 - `aws_profile`: The AWS profile to use for authentication (string)
 - `boot_wait_seconds`: The number of seconds to wait for the instance to boot (integer)
@@ -24,12 +27,15 @@ The following options are optional:
 - `security_group_description`: The description of the security group to use for the instance (string)
 - `security_group_rules`: A list of security group rules to apply to the instance (list of dicts)
 - `security_group_rules_egress`: A list of security group egress rules to apply to the instance (list of dicts)
-- `ssh_user`: The SSH user to use for connecting to the instance (string)
-- `ssh_port`: The SSH port to use for connecting to the instance (integer)
 - `security_groups`: A list of security group names to apply to the instance (list of strings)
 - `tags`: A dictionary of tags to apply to the instance (dictionary)
 - `vpc_id`: The ID of the VPC to use for connectivity between Molecule and the cluster hosts (string)
 - `vpc_subnet_id`: The ID of the subnet to use to find the VPC (string, mutually exclusive with `vpc_id`)
+- `ignore_potato_machines_status`: Whether to ignore the cluster status as reported by Potato (boolean)
+- `creation_timeout`: The number of seconds to wait for the cluster to be created by Potato (integer)
+
+> [!WARNING]  
+> This platform configuration does not currently support the use of `molecule login` to connect to the individual hosts created by Potato. You will need to utilize SSH connections through other means for console access to these machines.
 
 Requirements
 ------------

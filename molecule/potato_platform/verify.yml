@@ -1,0 +1,10 @@
+---
+# Verify that the role being tested has done what it's supposed to
+
+- name: Verify
+  hosts: molecule
+  tasks:
+    - name: "TODO: Add verify tasks"
+      ansible.builtin.debug:
+        msg: "IE: Check potato cluster status, etc."
+

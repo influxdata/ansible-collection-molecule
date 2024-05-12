@@ -19,6 +19,8 @@
 - name: Converge
   hosts: molecule
   tasks:
+    # All we're doing for now is making sure that the provsioner works, and that we can access the hosts.
+
     - name: Check uname
       ansible.builtin.raw: uname -a
       register: result
@@ -27,26 +29,4 @@
     - name: Verify kernel type
       ansible.builtin.assert:
         that: result.stdout | regex_search("^Linux")
-
-    - name: Do preparation
-      block:
-        - name: Load local host facts
-          ansible.builtin.setup:
-            gather_subset:
-              - '!all'
-              - '!min'
-              - local
-
-        - name: Show local Ansible facts
-          ansible.builtin.debug:
-            var: ansible_facts.ansible_local
-            verbosity: 1
-
-        - name: Load preparation facts
-          ansible.builtin.set_fact:
-            test_prepare_fact: "{{ ansible_local.molecule.test_prepare_fact }}"
-
-    - name: Add your project test configuration here
-      ansible.builtin.debug:
-        msg: Typically this will be via the ansible.builtin.include_role module or via import_playbook
 
