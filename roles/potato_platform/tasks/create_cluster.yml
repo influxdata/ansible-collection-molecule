@@ -126,6 +126,14 @@
           instance-state-name: ["running"]
       register: __potato_platform_new_ec2_instances
 
+    # Potato occasionally fails to create all instances due to unsupported instance types in the (randomly-selected) availability zone
+    - name: Validate cluster member count
+      ansible.builtin.assert:
+        that:
+          - __potato_platform_new_ec2_instances.instances | length >= (__potato_platform_creation_response.data_node_count | int + __potato_platform_creation_response.meta_node_count | int)
+        fail_msg: "Cluster creation failed to create all instances! Check the Potato logs for more information."
+        success_msg: "Expected number of EC2 instances discovered."
+
 - name: Show existing instances
   ansible.builtin.debug:
     var: __potato_platform_existing_ec2_instances
@@ -133,7 +141,8 @@
 
 - name: Modify EC2 instances
   vars:
-    __potato_platform_ec2_instances: "{{ __potato_platform_existing_ec2_instances if __potato_platform_new_ec2_instances.skipped | default(false) else __potato_platform_new_ec2_instances }}"
+    __potato_platform_ec2_instances: "{{ __potato_platform_existing_ec2_instances if __potato_platform_new_ec2_instances.skipped |
+      default(false) else __potato_platform_new_ec2_instances }}"
   block:
     - name: Show target ec2 instances
       ansible.builtin.debug:
@@ -156,26 +165,18 @@
         security_groups: "{{ __potato_platform_molecule_security_groups + __potato_platform_ec2_current_security_groups }}"
         state: running
 
-    - name: Copy private key to Molecule config
-      ansible.builtin.copy:
-        src: "{{ __potato_platform_cfg.private_key_source_path }}"
-        dest: "{{ __potato_platform_cfg.private_key_path }}"
-        mode: "0600"
-
-    # NOTE: Var is used by the `platform` role to write Molecule instance configuration
     - name: Collect instance configs
-      ansible.builtin.set_fact:
-        potato_platform_instance_configs: "{{ potato_platform_instance_configs | default([]) + [{
-          'instance': __potato_platform_instance.tags.Name,
-          'address': __potato_platform_instance.public_ip_address,
-          'user': __potato_platform_cfg.ssh_user,
-          'port': __potato_platform_cfg.ssh_port,
-          'identity_file': __potato_platform_cfg.private_key_path,
-          }] }}"
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/collect_ec2_data.yml"
       loop: "{{ __potato_platform_ec2_instances.instances }}"
       loop_control:
         loop_var: __potato_platform_instance
         label: "{{ __potato_platform_instance.instance_id }}"
+
+    - name: Copy SSH private key to Molecule config
+      ansible.builtin.copy:
+        src: "{{ __potato_platform_cfg.private_key_source_path }}"
+        dest: "{{ __potato_platform_cfg.private_key_path }}"
+        mode: "0600"
 
     - name: Check SSH connectivity
       ansible.builtin.wait_for:
@@ -202,6 +203,7 @@
       loop: "{{ __potato_platform_ssh_connectivity_check.results }}"
       loop_control:
         loop_var: __potato_platform_async_job
+        label: "{{ __potato_platform_async_job.__potato_platform_instance.instance_id }}"
 
 # TODO: Add an actual check here instead of only waiting
 - name: Wait for boot process to finish

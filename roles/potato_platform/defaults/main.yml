@@ -36,7 +36,7 @@ potato_platform_api_creds:
 potato_platform_default_creation_timeout: 600
 
 # How long to wait for a host to boot after initial SSH connectivity
-potato_platform_default_boot_wait_seconds: 30
+potato_platform_default_boot_wait_seconds: 0
 
 # Ignore Potato's reported status of a cluster, and simply wait the timeout before proceeding
 potato_platform_default_ignore_potato_machines_status: false
@@ -121,6 +121,17 @@ potato_platform_password: password123
 potato_platform_aws_tags:
   org: molecule
   env: ci
+
+# }}}
+
+
+## MOLECULE CONFIGURATION ## {{{
+
+# List of dictionaries containing mappings of tags to hostvars
+#  - These are used to set hostvars on the instances in the inventory
+potato_platform_default_tag_hostvar_mappings:
+  - tag: Type
+    hostvar: role
 
 # }}}
 

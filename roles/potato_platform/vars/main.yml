@@ -17,6 +17,7 @@ potato_platform_defaults:
   ignore_potato_machines_status: "{{ potato_platform_default_ignore_potato_machines_status }}"
   boot_wait_seconds: "{{ potato_platform_default_boot_wait_seconds }}"
   creation_timeout: "{{ potato_platform_default_creation_timeout }}"
+  tag_hostvar_mappings: "{{ potato_platform_default_tag_hostvar_mappings }}"
   name: ""
   region: ""
   security_groups: []

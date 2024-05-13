@@ -33,6 +33,8 @@ The following options are optional:
 - `vpc_subnet_id`: The ID of the subnet to use to find the VPC (string, mutually exclusive with `vpc_id`)
 - `ignore_potato_machines_status`: Whether to ignore the cluster status as reported by Potato (boolean)
 - `creation_timeout`: The number of seconds to wait for the cluster to be created by Potato (integer)
+- `tag_hostvar_mappings`: A list of dictionaries that map tags to hostvars (list of dicts)
+  - For example, `tag_hostvar_mappings: [{tag: "Name", hostvar: "ec2_name"}]` would map the `Name` tag to the `ec2_name` hostvar
 
 > [!WARNING]  
 > This platform configuration does not currently support the use of `molecule login` to connect to the individual hosts created by Potato. You will need to utilize SSH connections through other means for console access to these machines.
