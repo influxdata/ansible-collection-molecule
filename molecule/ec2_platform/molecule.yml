@@ -6,30 +6,14 @@ driver:
   name: default
   options:
     managed: true
-    login_cmd_template: 'docker exec -ti {instance} bash'
 platforms:
-  - name: docker-rockylinux9
-    type: docker
-    image: geerlingguy/docker-rockylinux9-ansible:latest
-    systemd: True
-    modify_image: False
-    privileged: False
-    hostvars:
-      test_hostvar: test
-  - name: docker-fedora39
-    type: docker
-    image: geerlingguy/docker-fedora39-ansible:latest
-    systemd: True
-    modify_image: False
-    privileged: False
-    hostvars:
-      test_hostvar: test
-  - name: docker-ubuntu2204
-    type: docker
-    image: geerlingguy/docker-ubuntu2204-ansible:latest
-    systemd: True
-    modify_image: False
-    privileged: False
+  - name: ec2-rockylinux9
+    type: ec2
+    image: ami-093bd987f8e53e1f2
+    region: us-west-2
+    vpc_id: vpc-07bd460b98a3fb162
+    vpc_subnet_id: subnet-0725b4ef4d069f1bf
+    instance_type: t3.micro
     hostvars:
       test_hostvar: test
 provisioner:
@@ -37,15 +21,16 @@ provisioner:
   log: True
   playbooks:
     create: ../resources/create.yml
-    prepare: ../resources/prepare.yml
+    prepare: prepare.yml
     converge: converge.yml
-    side_effect: ../resources/side_effect.yml
+    side_effect: ../resourcs/side_effect.yml
     verify: ../resources/verify.yml
     cleanup: ../resources/cleanup.yml
     destroy: ../resources/destroy.yml
   config_options:
     defaults:
       gathering: explicit
+      playbook_vars_root: top
       verbosity: ${ANSIBLE_VERBOSITY:-0}
 scenario:
   create_sequence:

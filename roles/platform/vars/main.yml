@@ -10,3 +10,6 @@ __platform_instance_config_update_needed: true
   # Default connection method for hosts -- update as needed in tasks/inventory.yml
 __platform_ansible_connection: "ssh"
 
+# The current molecule inventory contents
+__platform_current_molecule_inventory: {}
+

@@ -1,0 +1,85 @@
+---
+# Add an instance to the list of Molecule hosts
+#
+# Expected variables:
+#  - __platform_instance_config: The current list of instance configurations
+#  - __platform_target_instance_config: The configuration for the new instance
+#  - __platform_ansible_hostvars: Additional hostvars to add to the instance configuration
+#
+# Outputs:
+#  - __platform_instance_config: The updated list of instance configurations
+#  - __platform_instance_config_update_needed: Whether the instance configuration file needs to be updated
+#
+
+
+- name: We are adding/updating an instance
+  when: platform_state == 'present'
+  block:
+    - name: Instance configuration {{ __platform_target_instance_config.instance }} is valid
+      ansible.builtin.assert:
+        that:
+          - __platform_target_instance_config is defined
+          - __platform_target_instance_config.instance is string
+        fail_msg: "Instance configuration for {{ __platform_target_instance_config.instance }} failed! Check the platform configuration."
+        success_msg: "Instance configuration for {{ __platform_target_instance_config.instance }} is defined"
+
+    - name: Add user-specified hostvars to instance configuration
+      when:
+        - platform_molecule_cfg.hostvars is defined
+        - platform_molecule_cfg.hostvars is truthy
+      ansible.builtin.set_fact:
+        __platform_ansible_hostvars: "{{ __platform_ansible_hostvars | combine(platform_molecule_cfg.hostvars, recursive=true) }}"
+
+    - name: 🪲 Current instance config
+      ansible.builtin.debug:
+        var: __platform_instance_config
+        verbosity: 1
+
+    - name: 🪲 New instance config
+      ansible.builtin.debug:
+        var: __platform_target_instance_config
+        verbosity: 1
+
+    - name: 🪲 Ansible hostvars
+      ansible.builtin.debug:
+        var: __platform_ansible_hostvars
+        verbosity: 1
+
+    - name: Instance name matching this already exists in configuration
+      when:
+        - __platform_instance_config is truthy
+        - __platform_target_instance_config.instance in __platform_instance_config | map(attribute='instance') | list
+      block:
+        - name: Mark config update as unneeded
+          ansible.builtin.set_fact:
+            __platform_instance_config_update_needed: false
+
+        - name: Existing configuration does not match desired
+          when: __platform_target_instance_config != (__platform_instance_config |
+            selectattr('instance', 'equalto', __platform_target_instance_config.instance) | list | first)
+          block:
+            - name: Remove existing {{ __platform_target_instance_config.instance }} configuration (does not match)
+              ansible.builtin.set_fact:
+                __platform_instance_config: "{{
+                  __platform_instance_config | rejectattr('instance', 'equalto', __platform_target_instance_config.instance) | list }}"
+                __platform_instance_config_update_needed: true
+
+    - name: Append new instance to config
+      ansible.builtin.set_fact:
+        __platform_instance_config: >-
+          {{ __platform_instance_config | default([], true) + [__platform_target_instance_config]
+          if __platform_target_instance_config | default(false, true) is truthy
+          else __platform_instance_config }}
+
+- name: Remove instance configuration
+  when: platform_state == 'absent'
+  block:
+    - name: Remove existing {{ __platform_target_instance_config.instance }} configuration
+      when:
+        - __platform_instance_config is truthy
+        - __platform_target_instance_config.instance in __platform_instance_config | map(attribute='instance') | list
+      ansible.builtin.set_fact:
+        __platform_instance_config: "{{
+          __platform_instance_config | rejectattr('instance', 'equalto', __platform_target_instance_config.instance) | list }}"
+        __platform_instance_config_update_needed: true
+

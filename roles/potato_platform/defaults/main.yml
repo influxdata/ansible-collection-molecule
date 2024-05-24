@@ -1,0 +1,139 @@
+---
+# defaults file for potato_platform
+
+
+## PLATFORM CONFIGURATION ## {{{
+
+# Name of this Molecule platform
+potato_platform_name: potato_cluster
+
+# Run config handling
+potato_platform_default_run_id: "{{ lookup('password', '/dev/null chars=ascii_lowercase length=5') }}"
+potato_platform_default_run_config:
+  run_id: "{{ potato_platform_default_run_id }}"
+
+potato_platform_run_config_path: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/potato-platform-run-config.yml"
+potato_platform_run_config_from_file: "{{ (lookup('file', potato_platform_run_config_path, errors='ignore') or '{}') | from_yaml }}"
+potato_platform_run_config: '{{ potato_platform_default_run_config | combine(potato_platform_run_config_from_file) }}'
+
+# }}}
+
+
+## POTATO CONNECTION CONFIGURATION ## {{{
+
+# URL location at which Potato is accessible
+potato_platform_potato_address: http://localhost:8080
+
+# Full URL (including path) to the Potato API
+potato_platform_url: "{{ potato_platform_potato_address }}/v1/potato"
+
+# Basic auth credentials for Potato access
+potato_platform_api_creds:
+  username: "{{ lookup('env', 'POTATO_API_USERNAME') }}"
+  password: "{{ lookup('env', 'POTATO_API_PASSWORD') }}"
+
+# How long to wait for the cluster to be created
+potato_platform_default_creation_timeout: 600
+
+# How long to wait for a host to boot after initial SSH connectivity
+potato_platform_default_boot_wait_seconds: 0
+
+# Ignore Potato's reported status of a cluster, and simply wait the timeout before proceeding
+potato_platform_default_ignore_potato_machines_status: false
+
+# }}}
+
+
+## HOST CONNECTION CONFIGURATION ## {{{
+# Access to AWS is required in order to allow access to the cluster hosts by Molecule
+
+# AWS profile to use for authentication
+potato_platform_default_aws_profile: "{{ lookup('env', 'AWS_PROFILE') }}"
+
+# The path on the controller to the private key to use for SSH access
+# NOTE: This key is managed outside of Molecule (IE: by Potato), and must be provided to Molecule
+potato_platform_default_private_key_source_path: "{{ playbook_dir }}/files/id_rsa"
+
+# Molecule SSH access configuration
+potato_platform_default_private_key_path: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/id_rsa"
+potato_platform_default_public_key_path: "{{ potato_platform_default_private_key_path }}.pub"
+potato_platform_default_ssh_user: ansible
+potato_platform_default_ssh_port: 22
+
+# AWS networking configuration
+potato_platform_default_security_group_name: "molecule-{{ potato_platform_run_config.run_id }}"
+potato_platform_default_security_group_description: Ephemeral security group for Molecule instances
+potato_platform_default_security_group_rules:
+  - proto: tcp
+    from_port: "{{ potato_platform_default_ssh_port }}"
+    to_port: "{{ potato_platform_default_ssh_port }}"
+    cidr_ip: "0.0.0.0/0"
+  - proto: icmp
+    from_port: 8
+    to_port: -1
+    cidr_ip: "0.0.0.0/0"
+potato_platform_default_security_group_rules_egress:
+  - proto: -1
+    from_port: 0
+    to_port: 0
+    cidr_ip: "0.0.0.0/0"
+
+# }}}
+
+
+## INFLUXDB CLUSTER CONFIGURATION ## {{{
+
+# Configuration tag to use for the new cluster
+#  - These are located at https://quay.io/repository/influxdb/cloud-configuration?tab=tags
+potato_platform_config_tag: 1.11.5-prod-pro
+
+# The init template to be applied via cloud-config to each node in the new cluster
+potato_platform_init_template: latest
+
+# AWS region in which to deploy the new cluster
+potato_platform_aws_region: us-west-2
+
+# Size of the data disk for each node in the new cluster
+potato_platform_data_disk_size: 10
+
+# Instance type for the data nodes in the new cluster
+potato_platform_data_instance_type: t2.medium
+
+# Number of data nodes in the new cluster
+potato_platform_data_node_count: 2
+
+# Type of AWS load balancer to use for the cluster
+potato_platform_lb_driver: alb
+
+# Number of meta nodes in the new cluster
+potato_platform_meta_node_count: 3
+
+# Instance type for the meta nodes in the new cluster
+potato_platform_meta_instance_type: t3.small
+
+# Username for the InfluxDB admin user
+potato_platform_username: influxdb-admin
+
+# Password for the InfluxDB admin user
+potato_platform_password: password123
+
+# Tags to apply to the new cluster in AWS (dictionary)
+potato_platform_aws_tags:
+  org: molecule
+  env: ci
+
+# }}}
+
+
+## MOLECULE CONFIGURATION ## {{{
+
+# List of dictionaries containing mappings of tags to hostvars
+#  - These are used to set hostvars on the instances in the inventory
+potato_platform_default_tag_hostvar_mappings:
+  - tag: Type
+    hostvar: role
+
+# }}}
+
+
+# vim:foldmethod=marker:foldmarker={{{,}}}:ft=yaml.ansible

@@ -29,6 +29,12 @@ platforms:
     vpc_id: {{ init_platform.config.vpc_id }}
     vpc_subnet_id: {{ init_platform.config.vpc_subnet_id }}
 {% endif %}
+{% if init_platform.type == 'potato' %}
+    vpc_id: {{ init_platform.config.vpc_id | default('vpc-12345678') }}
+    potato_address: {{ init_platform.config.potato_address | default('http://potato.example.com:8080') }}
+    influxdb_cluster_config:
+{{ init_platform.config.influxdb_cluster_config | default({}) | to_nice_yaml(indent=2) | indent(6, true) }}
+{%- endif %}
     hostvars: {}
 {% endfor %}
 provisioner:

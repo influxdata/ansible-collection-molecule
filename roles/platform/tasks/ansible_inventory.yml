@@ -1,0 +1,56 @@
+---
+# Build an ansible inventory data structure
+#
+# This is a dictionary such as:
+#
+# all:
+#   children:
+#     molecule:
+#       hosts:
+#         instance_host_1:
+#         instance_host_2:
+#       vars:
+#         ansible_user: molecule_runner
+#         ansible_ssh_private_key_file: /path/to/private_key
+#
+# Expected variables:
+#  - __platform_target_instance_config: A dictionary containing the new instance configuration
+#  - __platform_ansible_hostvars: A dictionary containing additional hostvars to add to the instance configuration
+#  - __platform_current_molecule_inventory: The current molecule inventory contents
+#
+# Output
+#  - __platform_molecule_inventory: The updated molecule inventory contents
+#
+
+# TODO: Omit the `ec2_tag_vars` key itself so that it doesn't get written to the inventory file (duplicating values)
+- name: Host exists in inventory file
+  when: platform_state == 'present'
+  vars:
+    # NOTE: Has to be inside jinja so that we can set key name
+    __platform_molecule_inventory_partial: "{{ {
+      'all': {
+        'children': {
+          'molecule': {
+            'hosts': {
+              __platform_target_instance_config.instance: __platform_ansible_hostvars[__platform_target_instance_config.instance]
+                | combine(platform_molecule_cfg.hostvars | default({})
+                | combine(__platform_ansible_hostvars[__platform_target_instance_config.instance].ec2_tag_vars | default({})))
+          }}}}} }}"
+  ansible.builtin.set_fact:
+    __platform_molecule_inventory: "{{ __platform_molecule_inventory | from_yaml | default({})
+      | combine(__platform_molecule_inventory_partial, recursive=true) }}"
+
+- name: Host does not exist in inventory file
+  when:
+    - platform_state == 'absent'
+    - __platform_molecule_inventory is truthy
+  ansible.builtin.set_fact:
+    __platform_molecule_inventory: "{{
+      __platform_molecule_inventory | combine({
+        'all': {
+          'children': {
+            'molecule': {
+              'hosts': (__platform_molecule_inventory.all.children.molecule.hosts | default({}) |
+                dict2items | rejectattr('key', 'equalto', __platform_target_instance_config.instance) | items2dict)
+              }}}}, recursive=true) }}"
+

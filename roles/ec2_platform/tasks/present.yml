@@ -91,6 +91,8 @@
     description: "{{ ec2_platform.security_group_description }}"
     rules: "{{ ec2_platform.security_group_rules }}"
     rules_egress: "{{ ec2_platform.security_group_rules_egress }}"
+    tags:
+      Name: "{{ ec2_platform.security_group_name }}"
   vars:
     vpc_subnet: "{{ __ec2_platform_subnet_info.results[0].subnets[0] }}"
   when: ec2_platform.security_groups | length == 0
@@ -161,6 +163,11 @@
     search_regex: SSH
     delay: 10
     timeout: 320
+    msg: "SSH connectivity check to {{ ec2_platform_instance_config.address }} on port {{ ec2_platform_instance_config.port }} failed"
+  register: __ec2_platform_ssh_connectivity_check
+  until: "'Connection reset by peer' not in __ec2_platform_ssh_connectivity_check.module_stderr | default('')"
+  retries: 6
+  delay: 10
 
 # TODO: Add an actual check here instead of only waiting
 - name: Wait for boot process to finish

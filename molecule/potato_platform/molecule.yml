@@ -7,23 +7,33 @@ driver:
   options:
     managed: true
 platforms:
-  - name: ec2-rockylinux9
-    type: ec2
-    image: ami-067daee80a6d36ac0
-    region: us-east-2
-    vpc_id: vpc-0eb9fd1391f4207ec
-    vpc_subnet_id: subnet-0aa189c0d6fc53923
-    instance_type: t3.micro
+  - name: potato-platform-test
+    type: potato
+    vpc_id: vpc-07bd460b98a3fb162
+    region: us-west-2
+    potato_address: https://potato.a.influxcloud.us
+    private_key_source_path: /home/syndr@styx.ultroncore.net/.ssh/cloud1-dev-potato
+    ssh_user: core
+    ssh_port: 22
+    influxdb_cluster_cfg:
+      config_tag: 1.11.6.1-staging-pro
+      init: latest
+      password: ku4kQePLTI6RBYtq0KuY
+      username: test-ci-admin
+    ignore_potato_machines_status: true
+    creation_timeout: 240
     hostvars: {}
 provisioner:
   name: ansible
   log: True
   playbooks:
+    create: ../resources/create.yml
     prepare: prepare.yml
     converge: converge.yml
-    side_effect: side_effect.yml
+    side_effect: ../resourcs/side_effect.yml
     verify: verify.yml
-    cleanup: cleanup.yml
+    cleanup: ../resources/cleanup.yml
+    destroy: ../resources/destroy.yml
   config_options:
     defaults:
       gathering: explicit

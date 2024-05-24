@@ -6,9 +6,9 @@
   tasks:
     - name: Configure for standalone role testing
       ansible.builtin.include_role:
-        name: syndr.molecule.prepare_controller
+        name: influxdata.molecule.prepare_controller
       vars:
-        prepare_controller_project_type: role
+        prepare_controller_project_type: collection
 
 - name: Prepare target host for execution
   hosts: molecule
