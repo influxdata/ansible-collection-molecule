@@ -1,6 +1,7 @@
 galaxy_info:
   author: syndr
   description: Create a docker-based test platform for Molecule
+  role_name: docker_platform
 
   # If the issue tracker for your role is not on github, uncomment the
   # next line and provide a value

@@ -1,0 +1,23 @@
+---
+# Validate that configuration provided to the role is valid
+#
+# Expected variables:
+#  - docker_platform_config: The current Molecule platform configurations (list)
+#
+
+- name: Validate | Docker platform configuration
+  loop: "{{ docker_platform_config }}"
+  loop_control:
+    loop_var: __docker_platform_item
+    label: "{{ __docker_platform_item.name | default('undefined') }}"
+  ansible.builtin.assert:
+    that:
+      - __docker_platform_item is mapping
+      - __docker_platform_item.name is string
+      - __docker_platform_item.name | length > 0
+      - __docker_platform_item.type is string
+      - __docker_platform_item.type | length > 0
+      - __docker_platform_item.type == 'docker'
+    fail_msg: "Invalid Docker platform configuration provided!"
+    success_msg: "Docker platform configuration validated."
+

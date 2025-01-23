@@ -1,0 +1,79 @@
+---
+
+name: Test and release 'main'
+on:
+  push:
+    branches:
+      - main
+      - devel
+  pull_request:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      max-parallel: 4
+      matrix:
+        python-version: ["3.12"]
+        molecule-scenario:
+          - default
+          - ec2_platform
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install molecule ansible-lint requests boto3[crt]
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+      - name: Build and install collection
+        run: |
+          ansible-galaxy collection build --force
+          ansible-galaxy collection install --force syndr-molecule-*.tar.gz
+
+      - name: Log into AWS
+        if: ${{ matrix.molecule-scenario == 'ec2_platform' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: Test with molecule
+        env:
+          # Make molecule output colored content (easier to read via GH UI)
+          PY_COLORS: 1
+          ANSIBLE_FORCE_COLOR: 1
+        run: |
+          molecule test -s ${{ matrix.molecule-scenario }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create and Push Tag
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TAG_NAME=${{ github.ref_name }}
+          echo "Creating tag $TAG_NAME"
+          # Configure Git user
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Create the tag
+          git tag "$TAG_NAME"
+          # Push the tag to the repository
+          git push origin "refs/tags/$TAG_NAME" --force
+

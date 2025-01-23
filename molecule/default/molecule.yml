@@ -6,29 +6,36 @@ driver:
   name: default
   options:
     managed: true
-    login_cmd_template: 'docker exec -ti {instance} bash'
+    login_cmd_template: 'docker exec -ti {instance} bash --login'
 platforms:
-  - name: docker-rockylinux9
+  - name: ansible-collection-molecule-docker-rockylinux9
     type: docker
     image: geerlingguy/docker-rockylinux9-ansible:latest
     systemd: True
-    modify_image: False
     privileged: False
     hostvars:
       test_hostvar: test
-  - name: docker-fedora39
+  - name: ansible-collection-molecule-docker-rockylinux9-customized
     type: docker
-    image: geerlingguy/docker-fedora39-ansible:latest
+    image: rockylinux/rockylinux:9-ubi
     systemd: True
-    modify_image: False
+    exec_systemd: True
+    exec_systemd_build_commands:
+      - dnf install -y sudo
     privileged: False
     hostvars:
       test_hostvar: test
-  - name: docker-ubuntu2204
+  - name: ansible-collection-molecule-docker-fedora41
+    type: docker
+    image: geerlingguy/docker-fedora41-ansible:latest
+    systemd: True
+    privileged: False
+    hostvars:
+      test_hostvar: test
+  - name: ansible-collection-molecule-docker-ubuntu2204
     type: docker
     image: geerlingguy/docker-ubuntu2204-ansible:latest
     systemd: True
-    modify_image: False
     privileged: False
     hostvars:
       test_hostvar: test
@@ -38,7 +45,7 @@ provisioner:
   playbooks:
     create: ../resources/create.yml
     prepare: ../resources/prepare.yml
-    converge: converge.yml
+    converge: ../resources/converge.yml
     side_effect: ../resources/side_effect.yml
     verify: ../resources/verify.yml
     cleanup: ../resources/cleanup.yml
@@ -47,11 +54,17 @@ provisioner:
     defaults:
       gathering: explicit
       verbosity: ${ANSIBLE_VERBOSITY:-0}
+  env:
+    ARA_API_CLIENT: ${ARA_API_CLIENT:-'http'}
+    ARA_API_SERVER: ${ARA_API_SERVER:-'http://localhost:8000'}
+    ARA_DEFAULT_LABELS: ${ARA_DEFAULT_LABELS:-'testing,molecule'}
+    # To use Ara with molecule:
+    #  export the ANSIBLE_CALLBACK_PLUGINS env var with the output of 'python3 -m ara.setup.callback_plugins'
+    ANSIBLE_CALLBACK_PLUGINS: ${ANSIBLE_CALLBACK_PLUGINS}
 scenario:
   create_sequence:
     - dependency
     - create
-    - prepare
   check_sequence:
     - dependency
     - cleanup

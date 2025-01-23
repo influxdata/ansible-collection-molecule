@@ -5,102 +5,66 @@
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/asserts.yml"
 
 - name: Autodetect repository type
-  ansible.builtin.include_tasks: "{{ role_path }}/tasks/auto.yml"
   when: init_project_type == 'auto'
-
-- name: Build base platform definition
-  when: init_platforms is not truthy
-  block:
-    - name: Build base docker platform definition
-      when: init_platform_type == 'docker'
-      ansible.builtin.set_fact:
-        init_platforms: "{{ init_platforms | default(init_platform_defaults.docker, true) }}"
-
-    - name: Build base ec2 platform definition
-      when: init_platform_type == 'ec2'
-      ansible.builtin.set_fact:
-        init_platforms: "{{ init_platforms | default(init_platform_defaults.ec2, true) }}"
-
-    - name: Build base potato platform definition
-      when: init_platform_type == 'potato'
-      ansible.builtin.set_fact:
-        init_platforms: "{{ init_platforms | default(init_platform_defaults.potato, true) }}"
-
-    - name: Platform definition is valid
-      ansible.builtin.assert:
-        that:
-          - init_platforms is defined
-          - init_platforms | length > 0
-          - init_platforms[0].name is string
-          - init_platforms[0].type is string
-          - init_platforms[0].config is mapping
-        fail_msg: "Platform definition failed! Check the platform configuration."
-        success_msg: "Platform definition is valid"
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/auto.yml"
 
 - name: Load collection meta information
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/meta.yml"
+
+- name: Deploy Molecule configuration files
+  vars:
+    __init_scenario_dir: "{{ init_scenario_dir if init_scenario_dir.split('/')[-2] == 'molecule' else init_scenario_dir + '/default' }}"
+    __init_resources_dir: "{{ __init_scenario_dir.split('/')[:-1] | join('/') }}/resources"
+    __init_scenario_name: "{{ init_scenario_dir | basename }}"
   block:
-    - name: Load collection meta data
-      ansible.builtin.slurp:
-        src: "{{ role_path }}/../../MANIFEST.json"
-      register: __init_collection_meta
-      ignore_errors: true
+    - name: Create molecule directory
+      # Assume that we're inside a 'molecule' directory (checked via asserts.yml)
+      loop:
+        - "{{ __init_scenario_dir }}"
+        - "{{ __init_resources_dir }}"
+      loop_control:
+        loop_var: __init_directory
+      ansible.builtin.file:
+        path: "{{ __init_directory }}"
+        state: directory
+        mode: "0755"
 
-    - name: 🐜 Show collection meta data
-      ansible.builtin.debug:
-        var: __init_collection_meta.content | b64decode | from_json
-        verbosity: 1
-      ignore_errors: true
+    - name: Deploy molecule configuration
+      ansible.builtin.template:
+        src: "{{ role_path }}/templates/molecule.yml.j2"
+        dest: "{{ __init_scenario_dir }}/molecule.yml"
+        mode: 0644
+        backup: "{{ init_file_backup }}"
 
-    - name: Extract collection meta info
-      when:
-        - __init_collection_meta is not failed
-        - __init_collection_meta.content is defined
-        - (__init_collection_meta.content | b64decode | from_json).collection_info.version is defined
-      ansible.builtin.set_fact:
-        __init_collection_meta: "{{ (__init_collection_meta.content | b64decode | from_json) }}"
+    - name: Deploy resource template
+      loop:
+        - collections.yml
+        - requirements.yml
+        - create.yml
+        - prepare.yml
+        - destroy.yml
+        - converge.yml
+        - side_effect.yml
+        - verify.yml
+        - cleanup.yml
+      loop_control:
+        loop_var: __init_item
+      ansible.builtin.template:
+        src: "{{ role_path }}/templates/{{ __init_item }}.j2"
+        dest: "{{ __init_resources_dir }}/{{ __init_item }}"
+        mode: "0644"
+        backup: "{{ init_file_backup }}"
+        force: "{{ init_overwrite_resources }}"
 
-- name: Set collection information
-  ansible.builtin.set_fact:
-    __init_collection_version: >-
-      {{ init_collection_version if init_collection_version is truthy
-      else __init_collection_meta.collection_info.version | default(init_collection_defaults.version) }}
-    __init_collection_name: "{{ __init_collection_meta.collection_info.name | default(init_collection_defaults.name) }}"
-    __init_collection_namespace: "{{ __init_collection_meta.collection_info.namespace | default(init_collection_defaults.namespace) }}"
-    __init_collection_repository: "{{ __init_collection_meta.collection_info.repository | default(init_collection_defaults.repository) }}"
-
-- name: Deploy molecule configuration
-  ansible.builtin.template:
-    src: "{{ role_path }}/templates/molecule.yml.j2"
-    dest: "{{ init_scenario_dir }}/molecule.yml"
-    mode: 0644
-    backup: "{{ init_file_backup }}"
-
-- name: Deploy template
-  ansible.builtin.template:
-    src: "{{ role_path }}/templates/{{ __init_item }}.j2"
-    dest: "{{ init_scenario_dir }}/{{ __init_item }}"
-    mode: 0644
-    backup: "{{ init_file_backup }}"
-  loop:
-    - collections.yml
-    - requirements.yml
-    - create.yml
-    - prepare.yml
-    - destroy.yml
-  loop_control:
-    loop_var: __init_item
-
-- name: Deploy file
-  ansible.builtin.copy:
-    src: "{{ role_path }}/files/{{ __init_item }}"
-    dest: "{{ init_scenario_dir }}/{{ __init_item }}"
-    mode: 0644
-    backup: "{{ init_file_backup }}"
-  loop:
-    - converge.yml
-    - side_effect.yml
-    - verify.yml
-    - cleanup.yml
-  loop_control:
-    loop_var: __init_item
+    - name: Link Ansible dependency
+      loop:
+        - requirements.yml
+        - collections.yml
+      loop_control:
+        loop_var: __init_item
+      ansible.builtin.file:
+        src: "{{ __init_resources_dir }}/{{ __init_item }}"
+        dest: "{{ __init_scenario_dir }}/{{ __init_item }}"
+        state: link
+        force: true
 

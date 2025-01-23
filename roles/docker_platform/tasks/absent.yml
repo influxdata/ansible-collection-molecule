@@ -1,28 +1,52 @@
 ---
 
-- name: Removing infrastructure for platform
+- name: Destroy Platform | Removing docker infrastructure for platform(s)
   ansible.builtin.debug:
-    var: docker_platform_name
+    msg: "{{ docker_platform_config | map(attribute='name') | list | join(', ') }}"
 
-- name: Stop and remove container
-  delegate_to: localhost
+- name: Destroy Platform | Stop and remove container
+  loop: "{{ docker_platform_config }}"
+  loop_control:
+    loop_var: __docker_platform_instance
+    label: "{{ __docker_platform_instance.name }}"
   community.docker.docker_container:
-    name: "{{ docker_platform_name }}"
+    name: "{{ __docker_platform_instance.name }}"
     state: absent
     auto_remove: true
+  register: __docker_platform_remove_jobs
+  async: 300
+  poll: 0
 
-# TODO: Remove just this host, not the whole inventory
-#- name: Remove dynamic molecule inventory
-#  delegate_to: localhost
-#  block:
-#    - name: Remove dynamic inventory file
-#      ansible.builtin.file:
-#        path: "{{ docker_platform_molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
-#        state: absent
-#
-#    - name: Remove instance config file
-#      ansible.builtin.file:
-#        path: "{{ docker_platform_molecule_ephemeral_directory }}/instance_config.yml"
-#        state: absent
+- name: Destroy Platform | Print removal job status
+  ansible.builtin.debug:
+    var: __docker_platform_remove_jobs
+    verbosity: 1
 
+- name: Destroy Platform | Wait for container removal to complete
+  loop: "{{ __docker_platform_remove_jobs.results }}"
+  loop_control:
+    loop_var: __docker_platform_remove_result
+    label: "{{ __docker_platform_remove_result.__docker_platform_instance.name }}"
+  ansible.builtin.async_status:
+    jid: "{{ __docker_platform_remove_result.ansible_job_id }}"
+  register: __docker_platform_remove_results
+  until: __docker_platform_remove_results.finished
+  retries: 12
+  delay: 5
+
+- name: Destroy Platform | Print removal job results
+  ansible.builtin.debug:
+    var: __docker_platform_remove_results
+    verbosity: 1
+
+- name: Destroy Platform | Clean up async cache
+  loop: "{{ __docker_platform_remove_results.results }}"
+  loop_control:
+    loop_var: __docker_platform_cache_cleanup
+    label: "{{ __docker_platform_cache_cleanup.__docker_platform_remove_result.__docker_platform_instance.name }}"
+  ansible.builtin.async_status:
+    jid: "{{ __docker_platform_cache_cleanup.__docker_platform_remove_result.ansible_job_id }}"
+    mode: cleanup
+
+# TODO: Remove instances from molecule config
 

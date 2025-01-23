@@ -1,0 +1,43 @@
+---
+# Validate that configuration provided to the role is valid
+#
+# Expected variables:
+#  - ec2_platform_definition: The current Molecule platform configurations (list)
+#
+
+- name: Validate | EC2 platform configuration
+  loop: "{{ ec2_platforms }}"
+  loop_control:
+    loop_var: __ec2_platform_item
+    label: "{{ __ec2_platform_item.name | default('undefined') }}"
+  ansible.builtin.assert:
+    that:
+      - __ec2_platform_item is mapping
+      - __ec2_platform_item.name is string and __ec2_platform_item.name | length > 0
+      - __ec2_platform_item.assign_public_ip is boolean
+      - __ec2_platform_item.aws_profile is string
+      - __ec2_platform_item.boot_wait_seconds is integer and __ec2_platform_item.boot_wait_seconds >= 0
+      - __ec2_platform_item.cloud_config is mapping
+      - __ec2_platform_item.image is string
+      - __ec2_platform_item.image_name is string
+      - __ec2_platform_item.image_owner is sequence or (__ec2_platform_item.image_owner is string and __ec2_platform_item.image_owner | length > 0)
+      - __ec2_platform_item.instance_type is string and __ec2_platform_item.instance_type | length > 0
+      - __ec2_platform_item.key_inject_method is in ["cloud-init", "ec2"]
+      - __ec2_platform_item.key_name is string and __ec2_platform_item.key_name | length > 0
+      - __ec2_platform_item.private_key_path is string and __ec2_platform_item.private_key_path | length > 0
+      - __ec2_platform_item.public_key_path is string and __ec2_platform_item.public_key_path | length > 0
+      - __ec2_platform_item.region is string
+      - __ec2_platform_item.security_group_name is string and __ec2_platform_item.security_group_name | length > 0
+      - __ec2_platform_item.security_group_description is string and __ec2_platform_item.security_group_description | length > 0
+      - __ec2_platform_item.security_group_rules is sequence
+      - __ec2_platform_item.security_group_rules_egress is sequence
+      - __ec2_platform_item.security_groups is sequence
+      - __ec2_platform_item.ssh_user is string and __ec2_platform_item.ssh_user | length > 0
+      - __ec2_platform_item.ssh_port is integer and __ec2_platform_item.ssh_port in range(1, 65536)
+      - __ec2_platform_item.tags is mapping
+      - __ec2_platform_item.volumes is sequence
+      - __ec2_platform_item.vpc_id is string
+      - __ec2_platform_item.vpc_subnet_id is string and __ec2_platform_item.vpc_subnet_id | length > 0
+    fail_msg: "Invalid EC2 platform configuration provided!"
+    success_msg: "EC2 platform configuration validated."
+

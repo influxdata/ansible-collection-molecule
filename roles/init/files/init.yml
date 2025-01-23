@@ -3,16 +3,46 @@
 
 - name: Provision file structure
   hosts: localhost
+  connection: local
+  gather_facts: false
   tasks:
     - name: Launch provisioner
       ansible.builtin.include_role:
         name: influxdata.molecule.init
       vars:
-        # Supported platform types are: docker, ec2, potato
+        # Supported platform types are: docker, ec2
         init_platform_type: docker
+
         # Supported collection sources are: git, galaxy
         init_collection_source: git
+
         # Version of this collection that should be used by the Molecule test
         # - Set to "" to attempt to use the running version
         init_collection_version: latest
+
+        # Initialize ARA support in the Molecule configuration -- https://ara.recordsansible.org/
+        init_ara_support: true
+
+        # Create backups of any files that would be clobbered by running this role
+        init_file_backup: true
+
+        # Overwrite any existing 'resource' playbook files in the 'molecule/resources' directory
+        init_overwrite_resources: false
+
+        # Platforms that this test configuration should test
+        #  list of dicts, each required to contain:
+        #    name: (string)
+        #    type: (string)
+        #    config: (dictionary, configuration for specified "type")
+        #
+        #  for example, in the case of the "docker" type:
+        #    config:
+        #      image: (string, container image path)
+        #      systemd: (true/false)
+        #      modify_image: (true/false)
+        #      modify_image_buildpath: (string)     # path to directory containing Dockerfile
+        #      privileged: (true/false)
+        #
+        # If not specified, the role will attempt to use the default platform configuration
+        init_platforms: []
 

@@ -8,32 +8,40 @@
       - init_scenario_dir is string
       - init_project_dir is string
       - init_file_backup in [true, false]
-      - init_platform_type in ['docker', 'ec2', 'potato']
+      - init_platform_type is truthy
       - init_collection_version is string
       - init_collection_source in ['galaxy', 'git']
     fail_msg: Global configuration option for init role is not sane
     success_msg: Sanity check passed
 
 - name: Check for project file paths
-  ansible.builtin.stat:
-    path: "{{ __init_item }}"
   loop:
     - "{{ init_scenario_dir }}"
     - "{{ init_project_dir }}"
   loop_control:
     loop_var: __init_item
+  ansible.builtin.stat:
+    path: "{{ __init_item }}"
   register: __init_filepath_stat
 
 - name: File path exists
+  loop: "{{ __init_filepath_stat.results }}"
+  loop_control:
+    label: "{{ __init_item.stat.path }}"
+    loop_var: __init_item
   ansible.builtin.assert:
     that:
       - __init_item.stat.exists is true
     fail_msg: Specified file path does not exist!
     quiet: true
-  loop: "{{ __init_filepath_stat.results }}"
-  loop_control:
-    label: "{{ __init_item.stat.path }}"
-    loop_var: __init_item
+
+- name: Validate Molecule directory layout
+  ansible.builtin.assert:
+    that:
+      - init_scenario_dir.split('/')[:-1] | last == 'molecule' or
+        init_scenario_dir.split('/')[:-2] | last == 'molecule'
+    fail_msg: Molecule directory layout is not sane! Molecule test configuration must be in a directory named 'molecule'.
+    success_msg: Sanity check passed
 
 - name: Check for secret if specified
   block:
@@ -50,16 +58,36 @@
   when: init_ansible_secret_path is truthy
 
 - name: Platform configuration is sane
+  loop: "{{ init_platforms }}"
+  loop_control:
+    label: "{{ __init_item.name }}"
+    loop_var: __init_item
   ansible.builtin.assert:
     that:
       - __init_item.name is string
       - __init_item.name is truthy
       - __init_item.type in __init_supported_platform_types
-      - __init_item.config is mapping
     fail_msg: Platform configuration is not sane!
     success_msg: Sanity check passed
-  loop: "{{ init_platforms }}"
-  loop_control:
-    label: "{{ __init_item.name }}"
-    loop_var: __init_item
+
+- name: Validate platform support
+  ansible.builtin.assert:
+    that:
+      - init_platform_defaults is defined
+      - init_platform_defaults | type_debug == 'dict'
+    fail_msg: Unable to find platform defaults! Add support to the 'init' role for the platform '{{ init_platform_type }}'.
+    success_msg: Platform defaults found. Defaults are '{{ init_platform_defaults }}'
+
+- name: Validate runtime platform configuration
+  ansible.builtin.assert:
+    that:
+      - __init_runtime_platforms | type_debug == 'list'
+      - __init_runtime_platforms | map(attribute='name') | unique | length == __init_runtime_platforms | length
+      - __init_runtime_platforms | map(attribute='type') | unique | length == 1
+      - __init_runtime_platforms | length > 0
+    fail_msg: >
+      Runtime platform configuration is not sane!
+      Platform configuration:
+      {{ __init_runtime_platforms }}
+    success_msg: Sanity check passed with platforms '{{ __init_runtime_platforms }}'
 

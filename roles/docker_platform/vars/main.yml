@@ -4,3 +4,19 @@
 # Filesystem location of the Molecule ephemeral directory. Should not need to be updated by the user of this role!
 docker_platform_molecule_ephemeral_directory: "{{ molecule_ephemeral_directory }}"
 
+# Working directory for docker image build process
+docker_platform_modify_image_buildpath: "{{ molecule_ephemeral_directory }}/build"
+
+# Volume mounts required for systemd enabled containers (will be mounted as read-write)
+docker_platform_systemd_volumes:
+  - /sys/fs/cgroup
+
+# Tempfs mounts required for systemd enabled containers
+docker_platform_systemd_tmpfs:
+  - /run
+  - /run/lock
+
+# Base hostvars for docker containers that should always be present
+docker_platform_hostvars_base:
+  ansible_connection: community.docker.docker
+

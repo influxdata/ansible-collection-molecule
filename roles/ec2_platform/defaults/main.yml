@@ -4,8 +4,23 @@
 # Name of this Molecule platform
 ec2_platform_name: instance
 
+# Whether this platform should be deployed (present/absent)
+ec2_platform_state: "{{ platform_target_state | default('present') }}"
+
+# Molecule platform configuration (list of dictionaries)
+ec2_platform_definition: "{{ [platform_target_config] if platform_target_config is defined else (molecule_yml.platforms | default([])) }}"
+
+# Merge the defaults with any options provided to this role
+ec2_platforms: >-
+  {%- set __platforms = [] -%}
+  {%- for __platform in ec2_platform_definition -%}
+    {%- set __platform = ec2_platform_defaults | combine(__platform) -%}
+    {%- set _ = __platforms.append(__platform) -%}
+  {%- endfor -%}
+  {{ __platforms }}
+
 # Run config handling
-ec2_platform_default_run_id: "{{ lookup('password', '/dev/null chars=ascii_lowercase length=5') }}"
+ec2_platform_default_run_id: "{{ ec2_platform_run_config_from_file.run_id | default(lookup('password', '/dev/null chars=ascii_lowercase length=5')) }}"
 ec2_platform_default_run_config:
   run_id: "{{ ec2_platform_default_run_id }}"
 
@@ -16,7 +31,8 @@ ec2_platform_run_config: '{{ ec2_platform_default_run_config | combine(ec2_platf
 # Platform settings handling
 ec2_platform_default_assign_public_ip: true
 ec2_platform_default_aws_profile: "{{ lookup('env', 'AWS_PROFILE') }}"
-ec2_platform_default_boot_wait_seconds: 120
+ec2_platform_default_boot_wait_seconds: 10
+ec2_platform_default_instance_creation_timeout: 300
 ec2_platform_default_instance_type: t3a.medium
 ec2_platform_default_key_inject_method: cloud-init # valid values: [cloud-init, ec2]
 ec2_platform_default_key_name: "molecule-{{ ec2_platform_run_config.run_id }}"
@@ -47,6 +63,7 @@ ec2_platform_defaults:
   assign_public_ip: "{{ ec2_platform_default_assign_public_ip }}"
   aws_profile: "{{ ec2_platform_default_aws_profile }}"
   boot_wait_seconds: "{{ ec2_platform_default_boot_wait_seconds }}"
+  instance_creation_timeout: "{{ ec2_platform_default_instance_creation_timeout }}"
   instance_type: "{{ ec2_platform_default_instance_type }}"
   key_inject_method: "{{ ec2_platform_default_key_inject_method }}"
   key_name: "{{ ec2_platform_default_key_name }}"

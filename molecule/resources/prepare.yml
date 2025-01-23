@@ -2,6 +2,9 @@
 
 - name: Prepare controller for execution
   hosts: localhost
+  vars:
+    collection_namespace: "{{ (lookup('file', playbook_dir ~ '/../../galaxy.yml') | from_yaml).namespace }}"
+    collection_name: "{{ (lookup('file', playbook_dir ~ '/../../galaxy.yml') | from_yaml).name }}"
   tasks:
     - name: Configure for standalone role testing
       ansible.builtin.include_role:
@@ -14,6 +17,27 @@
         path: "{{ playbook_dir }}/../../"
         dest: "{{ molecule_ephemeral_directory }}/project.tar"
         format: tar
+
+    - name: Build collection
+      ansible.builtin.command:
+        chdir: "{{ playbook_dir }}/../../"
+        cmd: ansible-galaxy collection build --force
+      register: build_result
+
+    # WARNING: This can cause problems if the current state of the collection in this project is borked!
+    - name: Link current collection version for controller
+      block:
+        - name: Molecule scenario collection path exists
+          ansible.builtin.file:
+            path: "{{ molecule_ephemeral_directory }}/collections/ansible_collections/{{ collection_namespace }}"
+            state: directory
+            mode: 0755
+
+        - name: Molecule scenario collection link exists
+          ansible.builtin.file:
+            path: "{{ molecule_ephemeral_directory }}/collections/ansible_collections/{{ collection_namespace }}/{{ collection_name }}"
+            src: "{{ playbook_dir }}/../../"
+            state: link
 
 - name: Prepare target host for execution
   hosts: molecule
@@ -34,6 +58,7 @@
     #           ansible_user: molecule_runner
     ##
     - name: Create ansible service account
+      become: true
       block:
         - name: Create ansible group
           ansible.builtin.group:
@@ -87,6 +112,7 @@
 
     - name: Install packages
       # NOTE: If testing with a distro not mentioned in this block, you'll need to add code for it here!
+      become: true
       block:
         - name: Install packages for ubuntu
           block:
@@ -106,6 +132,7 @@
                 pkg:
                   - ansible
                   - wget
+                  - acl
           when: ansible_distribution | lower == 'ubuntu'
 
         - name: Install packages (RHEL Family)
@@ -134,6 +161,7 @@
           ansible.builtin.file:
             path: ~/.ansible/collections/ansible_collections
             state: directory
+            mode: "0755"
 
         - name: Project dir does not exist (Clean Slate 󰩸)
           ansible.builtin.file:
@@ -144,6 +172,7 @@
           ansible.builtin.file:
             path: ~/.ansible/collections/ansible_collections/{{ collection_namespace }}/{{ collection_name }}
             state: directory
+            mode: "0755"
 
         - name: Deploy project to host
           ansible.builtin.unarchive:

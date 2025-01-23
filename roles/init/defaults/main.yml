@@ -1,26 +1,24 @@
 ---
 # defaults file for init
 
-# The type of project that this Molecule configuration will be integrated into
+# The type of project that this Molecule configuration will be integrated into (role, collection, playbook, monolith)
 init_project_type: auto
 
-# The type of platform that this Molecule configuration will be testing on (docker, ec2, potato)
+# The type of platform that this Molecule configuration will be testing on (docker, ec2)
 # WARN: mixing platform types is not supported!
 init_platform_type: docker
 
 # Version of this collection that should be used by the Molecule test
-# - Set to "" to attempt to use the running version
+# - Set to "current" to attempt to use the running version
 init_collection_version: latest
 
 # Source of the collection that this role is part of (galaxy, git)
 init_collection_source: git
 
-# Filesystem location of the molecule scenario being initialized
-init_scenario_dir: "{{ molecule_scenario_directory | default(playbook_dir) }}"
-
-# The filesystem location of the project being tested by this Molecule configuration
-#  - default value assumes that your Molecule project is located at <project dir>/molecule/<scenario>
-init_project_dir: "{{ init_scenario_dir.split('/')[:-2] | join('/') }}"
+# Path to the ansible secret file that should be used by the Molecule test
+#  - Variable substitution can be used as described here: https://ansible.readthedocs.io/projects/molecule/configuration/#variable-substitution
+#  - Set to "" to disable
+init_ansible_secret_path: "{{ lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | default('') }}"
 
 # Platforms that this test configuration should test
 #  list of dicts, each required to contain:
@@ -42,45 +40,25 @@ init_platforms: []
 # Create backups of any files that would be clobbered by running this role
 init_file_backup: true
 
+# Overwrite any existing 'resource' playbook files in the 'molecule/resources' directory
+init_overwrite_resources: false
+
+# Initialize ARA support in the Molecule configuration -- https://ara.recordsansible.org/
+init_ara_support: true
+
 # Default configuration to be added to generated molecule.yml if init_platforms is not defined
-init_platform_defaults:
-  docker:
-    - name: docker-rockylinux9
-      type: docker
-      config:
-        image: "geerlingguy/docker-rockylinux9-ansible:latest"
-        systemd: true
-  ec2:
-    - name: ec2-rockylinux9
-      type: ec2
-      config:
-        image: "ami-067daee80a6d36ac0"
-        instance_type: "t3.micro"
-        region: "us-east-2"
-        vpc_id: "vpc-12345678"
-        vpc_subnet_id: "subnet-12345678"
-  potato:
-    - name: potato-influxdb-cluster
-      type: potato
-      config:
-        potato_address: "http://potato.example.com"
-        vpc_id: "vpc-12345678"
-        influxdb_cluster_config:
-          region: us-west-2
-          username: influxdb-admin
-          password: supersecretpassword
-          init: latest
-          config_tag: 1.23.4.5-staging-pro
+init_platform_defaults: "{{ lookup('file', role_path + '/defaults/platforms/' + init_platform_type + '.yml') | from_yaml }}"
 
-# Path to the ansible secret file that should be used by the Molecule test
-#  - Variable substitution can be used as described here: https://ansible.readthedocs.io/projects/molecule/configuration/#variable-substitution
-#  - Set to "" to disable
-init_ansible_secret_path: ""
+# Filesystem location of the molecule scenario being initialized
+init_scenario_dir: "{{ molecule_scenario_directory | default(playbook_dir) }}"
 
-# Configuration defaults to be used if the collection manifest is not accessible
-init_collection_defaults:
-  repository: https://github.com/influxdata/ansible-collection-molecule
-  name: molecule
-  namespace: influxdata
-  version: latest
+# The filesystem location of the project being tested by this Molecule configuration
+#  - default value assumes that your Molecule project is located at <project dir>/molecule/<scenario>
+init_project_dir: >-
+  {{
+    init_scenario_dir.split('/')[:-2] | join('/')
+    if init_scenario_dir.split('/')[:-1] | last == 'molecule'
+    else
+    init_scenario_dir.split('/')[:-3] | join('/')
+  }}
 

@@ -1,2 +1,8 @@
 ---
 # vars file for ec2_platform
+
+# Base hostvars for EC2 instances that should always be present
+# NOTE: These are exported on platform removal as well. Include default values if data will not always exist!
+ec2_platform_hostvars_base:
+  ansible_connection: ssh
+

@@ -1,14 +1,21 @@
 ---
 # tasks file for platform
 
-- name: Platform is provisioned
-  ansible.builtin.include_tasks: "{{ role_path }}/tasks/provision.yml"
-  when: platform_state == 'present'
+- name: Process provided platform configuration
+  vars:
+    __platform_config: "{{ [platform_molecule_cfg] if platform_molecule_cfg is truthy else platform_config }}"
+  block:
+    - name: Validate platform configuration
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_cfg.yml"
 
-- name: Platform is destroyed
-  ansible.builtin.include_tasks: "{{ role_path }}/tasks/deprovision.yml"
-  when: platform_state == 'absent'
+    - name: Platform is provisioned
+      when: platform_state == 'present'
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/provision.yml"
 
-- name: Configure Molecule inventory
-  ansible.builtin.include_tasks: "{{ role_path }}/tasks/inventory.yml"
+    - name: Platform is destroyed
+      when: platform_state == 'absent'
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/deprovision.yml"
+
+    - name: Configure Molecule inventory
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/inventory.yml"
 

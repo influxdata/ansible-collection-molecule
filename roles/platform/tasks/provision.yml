@@ -1,47 +1,25 @@
 ---
 # Create a host and requisite configuration for use by molecule
 #
+# Expected input:
+#  - __platform_config: The molecule platform configuration (list)
+#
+#
+
+- name: Show runtime platform configuration
+  ansible.builtin.debug:
+    var: __platform_config
+    verbosity: 1
 
 - name: Initialize state
   ansible.builtin.set_fact:
     # Number of times this role has been included during this playbook run
     __platform_run_count: "{{ __platform_run_count | default(0) | int + 1 }}"
 
-- name: Load system facts
-  ansible.builtin.setup:
-    filter:
-      - ansible_service_mgr
-
-- name: Configure platform for docker type
-  when: platform_type == 'docker'
-  ansible.builtin.include_role:
-    name: "{{ ansible_collection_name }}.docker_platform"
+- name: Configure {{ __platform_config | length }} Molecule platform(s)
   vars:
-    docker_platform_name: "{{ platform_name }}"
-    docker_platform_state: present
-    docker_platform_image: "{{ platform_molecule_cfg.image }}"
-    docker_platform_systemd: "{{ platform_molecule_cfg.systemd | default(false) }}"
-    docker_platform_modify_image: "{{ platform_molecule_cfg.modify_image | default(false) }}"
-    docker_platform_modify_image_buildpath: "{{ platform_molecule_cfg.modify_image_buildpath | default(molecule_ephemeral_directory + '/build') }}"
-    docker_platform_privileged: "{{ platform_molecule_cfg.privileged | default (false) }}"
-    docker_platform_hostvars: "{{ platform_molecule_cfg.hostvars | default({}) }}"
-
-- name: Configure platform for ec2 type
-  when: platform_type == 'ec2'
+    # WARNING: This assumes all platforms are of the same type
+    __platform_type: "{{ __platform_config | map(attribute='type') | first }}"
   ansible.builtin.include_role:
-    name: "{{ ansible_collection_name }}.ec2_platform"
-  vars:
-    ec2_platform_name: "{{ platform_name }}"
-    ec2_platform_state: present
-    ec2_platform_definition: "{{ platform_molecule_cfg }}"
-
-- name: Configure platform for Potato type
-  when: platform_type == 'potato'
-  ansible.builtin.include_role:
-    name: "{{ ansible_collection_name }}.potato_platform"
-  vars:
-    potato_platform_name: "{{ platform_name }}"
-    potato_platform_state: present
-    potato_platform_definition: "{{ platform_molecule_cfg }}"
-    potato_platform_potato_address: "{{ platform_molecule_cfg.potato_address }}"
+    name: "{{ ansible_collection_name }}.{{ __platform_type }}_platform"
 
