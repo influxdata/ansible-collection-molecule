@@ -1,5 +1,7 @@
 galaxy_info:
-  author: syndr
+  role_name: prepare_controller
+  author: InfluxData
+  namespace: influxdata
   description: Prepare a molecule controller to run local code tests
 
   # If the issue tracker for your role is not on github, uncomment the

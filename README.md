@@ -10,7 +10,7 @@ When utilizing an image with systemd support (systemd packages are installed, et
 
 # Table of Contents
 
-- [Ansible Collection - syndr.molecule](#ansible-collection---syndrmolecule)
+- [Ansible Collection - influxdata.molecule](#ansible-collection---influxdatamolecule)
 - [What is Molecule?](#what-is-molecule)
 - [Using this collection](#using-this-collection)
   - [Host Requirements](#host-requirements)

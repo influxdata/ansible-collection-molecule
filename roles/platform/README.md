@@ -49,15 +49,7 @@ Example Playbook
   tasks:
     - name: Create platform(s)
       ansible.builtin.include_role:
-        name: syndr.molecule.platform
-      vars:
-        platform_name: "{{ item.name }}"
-        platform_state: present
-        platform_type: "{{ item.type }}"
-        platform_molecule_cfg: "{{ item }}"
-      loop: "{{ molecule_yml.platforms }}"
-      loop_control:
-        label: item.name
+        name: influxdata.molecule.platform
 
 # We want to avoid errors like "Failed to create temporary directory"
 - name: Validate that inventory was refreshed
@@ -83,5 +75,5 @@ MIT
 Author Information
 ------------------
 
-- [@syndr](https://github.com/syndr/)
+- InfluxData
 

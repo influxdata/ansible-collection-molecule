@@ -1,6 +1,6 @@
 ---
 
-name: Test and release 'main'
+name: Test and release branch
 on:
   push:
     branches:
