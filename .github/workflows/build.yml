@@ -37,7 +37,7 @@ jobs:
       - name: Build and install collection
         run: |
           ansible-galaxy collection build --force
-          ansible-galaxy collection install --force syndr-molecule-*.tar.gz
+          ansible-galaxy collection install --force *-molecule-*.tar.gz
 
       - name: Log into AWS
         if: ${{ matrix.molecule-scenario == 'ec2_platform' }}

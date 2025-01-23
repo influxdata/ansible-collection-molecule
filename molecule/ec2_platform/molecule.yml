@@ -13,7 +13,7 @@ platforms:
     region: us-west-2
     vpc_id: vpc-07bd460b98a3fb162
     vpc_subnet_id: subnet-0725b4ef4d069f1bf
-    instance_type: t3.micro
+    instance_type: t3.small
     ssh_user: molecule_runner
     hostvars:
       test_hostvar: test

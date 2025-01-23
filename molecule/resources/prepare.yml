@@ -131,7 +131,6 @@
               ansible.builtin.apt:
                 pkg:
                   - ansible
-                  - wget
                   - acl
           when: ansible_distribution | lower == 'ubuntu'
 
@@ -139,7 +138,6 @@
           ansible.builtin.package:
             name:
               - ansible-core
-              - wget
           when: ansible_distribution_file_variety | lower == 'redhat'
 
     - name: Verify application availibility
@@ -148,7 +146,6 @@
       changed_when: false
       loop:
         - ansible-playbook --version
-        - wget --version
 
     - name: Add the working version of this project to test host
       become: true

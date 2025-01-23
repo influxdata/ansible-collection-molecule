@@ -24,6 +24,7 @@ jobs:
 
       - name: Build and Deploy Collection
         uses: artis3n/ansible_galaxy_collection@v2
+        if: ${{ secrets.GALAXY_API_KEY != '' }}
         with:
           api_key: '${{ secrets.GALAXY_API_KEY }}'
 
