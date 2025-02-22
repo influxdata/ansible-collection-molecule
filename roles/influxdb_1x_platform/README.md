@@ -55,9 +55,9 @@ Role Variables
 
 When using this role, which should be done via the [platform role](../platform), you will need the following variables defined:
 
-- `potato_platform_potato_username`: The username to use for the Potato orchestrator 
+- `influxdb1x_platform_potato_username`: The username to use for the Potato orchestrator 
   - This can also be set using the `POTATO_API_USERNAME` environment variable, which will take precedence
-- `potato_platform_potato_password`: The password to use for the Potato orchestrator
+- `influxdb1x_platform_potato_password`: The password to use for the Potato orchestrator
   - This can also be set using the `POTATO_API_PASSWORD` environment variable, which will take precedence
 
 In order to connect to AWS, you will need the following environment variables to be set:

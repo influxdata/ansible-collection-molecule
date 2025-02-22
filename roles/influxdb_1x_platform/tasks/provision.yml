@@ -1,0 +1,22 @@
+---
+# Provision InfluxDB 1.x platform
+#
+
+- name: Validate configuration data
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
+
+- name: Write run config to file
+  ansible.builtin.copy:
+    dest: "{{ influxdb1x_platform_run_config_path }}"
+    content: "{{ influxdb1x_platform_run_config | to_yaml }}"
+    mode: "0600"
+
+- name: Configure AWS EC2 networking
+  when: influxdb1x_platform_configure_aws_networking
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/create_aws_sg.yml"
+
+- name: Create InfluxDB 1.x cluster
+  vars:
+    # TODO: Var with list of all platforms where a cluster doesn't exist
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/create_cluster.yml"
+

@@ -1,0 +1,159 @@
+---
+# vars file for potato_platform
+# These are internal variables -- DO NOT MODIFY AT RUNTIME
+
+
+# Internal default configuration; combined with user-provided configuration at runtime
+__influxdb1x_platform_defaults:
+  ## Orchestrator Configuration ##
+  #
+  # URL location at which cluster orchestrator is accessible
+  orchestrator_address: http://localhost:8080
+  # Path to the orchestrator API (without the base URL)
+  orchestrator_api_path: /v1/potato
+  # Basic auth credentials for orchestrator access
+  api_creds:
+    username: "{{ lookup('env', 'ORCHESTRATOR_API_USERNAME') | default('admin') }}"
+    password: "{{ lookup('env', 'ORCHESTRATOR_API_PASSWORD') | default('imnotsecure') }}"
+  # Consider a cluster creation successful, regardless of the 'machines_status' field in the orchestrator response
+  ignore_machines_status: false
+  # The maximum time (in seconds) to wait for cluster creation
+  #  NOTE: Wait time will always be this value if 'ignore_machines_status' is set to true
+  creation_timeout: 300
+  # The time (in seconds) to wait after initially detecting an open SSH port on cluster hosts before continuing
+  boot_wait_seconds: 10
+
+  ## Ansible/Molecule configuration
+  #
+  # Hostvars that should be applied to the cluster hosts
+  hostvars: {}
+
+  ## SSH Configuration ##
+  #
+  # The default SSH username for connecting to cluster hosts
+  ssh_user: ansible
+  # The TCP port over which Ansible should connect to hosts
+  ssh_port: 22
+  # The path on the controller to the private key to use for SSH access
+  # NOTE: This key is managed outside of Molecule (IE: by the cluster orchestrator), and must be provided to Molecule
+  private_key_source_path: "{{ playbook_dir }}/files/id_rsa"
+  # The path to the private SSH key used during runtime (copied from 'private_key_source_path')
+  private_key_runtime_path: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/id_rsa"
+  public_key_runtime_path: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/id_rsa.pub"
+
+  ## AWS Configuration ##
+  #
+  # Configure host networking in AWS to allow access to the cluster hosts by Molecule
+  #  - Requires RW access to the AWS API for EC2 instances and security groups
+  enable_aws_config: true
+  # AWS profile to use for authentication
+  aws_profile: "{{ lookup('env', 'AWS_PROFILE') | default('') }}"
+  # Name of the security group used for connections to the instance
+  security_group_name: "molecule-{{ influxdb1x_platform_run_config.run_id }}"
+  # Whether the security group should be created (ephemeral) or already exists (persistent)
+  security_group_type: ephemeral
+  # Description for the ephemeral security group
+  ephemeral_security_group_description: Ephemeral security group for Molecule instances
+  # Whether the security group should allow inbound connections from other group members
+  ephemeral_security_group_add_self: true
+  # Ingress and egress rules for the ephemeral security group
+  ephemeral_security_group_rules:
+    ingress:
+      - proto: tcp
+        from_port: 22
+        to_port: 22
+        cidr_ip: "{{ influxdb1x_external_ip ~ '/32' | default('0.0.0.0/0') }}"
+      - proto: icmp
+        from_port: 8
+        to_port: -1
+        cidr_ip: "{{ influxdb1x_external_ip ~ '/32' | default('0.0.0.0/0') }}"
+    egress:
+      - proto: -1
+        from_port: 0
+        to_port: 0
+        cidr_ip: "{{ influxdb1x_external_ip ~ '/32' | default('0.0.0.0/0') }}"
+  # Mapping of AWS tags to Ansible host variables for resource identification
+  tag_hostvar_mappings:
+    - tag: Type
+      hostvar: role
+
+  # Internal validation
+  internal_id: "{{ influxdb1x_platform_run_config.run_id }}"
+
+
+# Default configuration for a new InfluxDB 1.x cluster; combined with user-provided configuration at runtime
+__influxdb1x_cluster_defaults:
+  # Block device configuration for volumes used by the cluster
+  block_device:
+    delete_on_termination: true
+  # Configuration tag to use for the new cluster
+  config_tag: 1.11.7-prod-pro
+  # The init template to be applied via cloud-config to each node in the new cluster
+  init: latest
+  # Size of the data disk for each (data) node in the new cluster
+  data_disk_size: 10
+  # Instance type for the data nodes in the new cluster
+  data_instance_type: t2.medium
+  # Number of data nodes in the new cluster
+  data_node_count: 2
+  # Type of AWS load balancer to use for the cluster
+  lb_driver: alb
+  # Direction the load balancer should face (internal/external)
+  lb_facing: external
+  # Number of meta nodes in the new cluster
+  meta_node_count: 3
+  # Instance type for the meta nodes in the new cluster
+  meta_instance_type: t3.small
+  # AWS region in which to deploy the new cluster
+  region: us-west-2
+  # Create credentials for the influxdb admin user at runtime
+  generate_credentials: true
+  # Username for the InfluxDB admin user
+  #  - Only used if 'generate_credentials' is set to false
+  username: ""
+  # Password for the InfluxDB admin user
+  # - Only used if 'generate_credentials' is set to false
+  password: ""
+  # Tags to apply to the new cluster in AWS (dictionary)
+  tags:
+    org: molecule
+    env: ci
+    notes: Created by Molecule
+
+  # Internal validation
+  internal_id: "{{ influxdb1x_platform_run_config.run_id }}"
+
+
+
+# Run config handling
+__influxdb1x_run_id_random: "{{ lookup('password', '/dev/null chars=ascii_lowercase length=5') }}"
+influxdb1x_platform_default_run_id: "{{ influxdb1x_platform_run_config_from_file.run_id
+  | default(__influxdb1x_run_id_random) }}"
+influxdb1x_platform_default_run_config:
+  run_id: "{{ __influxdb1x_run_id | default(influxdb1x_platform_default_run_id) }}"
+  platforms: []
+
+influxdb1x_platform_run_config_path: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/influxdb1x-platform-run-config.yml"
+influxdb1x_platform_run_config_from_file: "{{ (lookup('file', influxdb1x_platform_run_config_path, errors='ignore') or '{}') | from_yaml }}"
+influxdb1x_platform_run_config: '{{ influxdb1x_platform_default_run_config | combine(influxdb1x_platform_run_config_from_file) }}'
+
+# Merge the defaults with any options provided to this role
+__influxdb1x_platforms: >-
+  {%- set __platforms = [] -%}
+  {%- for __platform in influxdb1x_platform_definition -%}
+    {%- set __platform_cluster_cfg = influxdb1x_cluster_defaults
+      | combine(__influxdb1x_cluster_defaults, recursive=True)
+      | combine(__platform.cluster_config | default({}), recursive=True) -%}
+    {%- set __platform = __platform | combine({
+        'cluster_config': __platform_cluster_cfg
+      }) -%}
+    {%- set __platform = influxdb1x_platform_defaults
+      | combine(__influxdb1x_platform_defaults, recursive=True)
+      | combine(__platform, recursive=True) -%}
+    {%- set _ = __platforms.append(__platform) -%}
+  {%- endfor -%}
+  {{ __platforms }}
+
+# Current runtime information from the orchestrator regarding this cluster
+__influxdb1x_platform_cluster_info: {}
+

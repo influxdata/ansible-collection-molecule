@@ -1,0 +1,58 @@
+---
+# Make sure everything is 👌
+
+- name: Validate | Configuration integrity
+  loop:
+    - "{{ __influxdb1x_platform_defaults }}"
+    - "{{ __influxdb1x_cluster_defaults }}"
+  loop_control:
+    loop_var: __influxdb1x_default_cfg
+    label: "{{ ansible_loop_var }}"
+  ansible.builtin.assert:
+    that:
+      - __influxdb1x_default_cfg is mapping
+      - __influxdb1x_default_cfg.internal_id is defined
+      - __influxdb1x_default_cfg.internal_id == influxdb1x_platform_run_config.run_id
+    fail_msg: "Configuration integrity is compromised! Do not modify variables beginning with '__influxdb1x_'!"
+    success_msg: "Configuration integrity passes"
+
+
+- name: Validate Potato connection configuration
+  ansible.builtin.assert:
+    that:
+      - influxdb1x_platform_potato_address is string and influxdb1x_platform_potato_address | length > 0
+      - influxdb1x_platform_url is string and influxdb1x_platform_url | length > 0 and influxdb1x_platform_url | regex_search('http[s]?://')
+      - influxdb1x_platform_api_creds is mapping
+      - influxdb1x_platform_api_creds.username is string and influxdb1x_platform_api_creds.username | length > 0
+      - influxdb1x_platform_api_creds.password is string and influxdb1x_platform_api_creds.password | length > 0
+    fail_msg: "Potato connection configuration is invalid"
+    success_msg: "Potato connection configuration is valid"
+
+- name: Validate platform configuration
+  loop: "{{ influxdb1x_platforms }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_cfg
+    label: "{{ __influxdb1x_platform_cfg.name | default('invalid name', true) }}"
+  ansible.builtin.assert:
+    that:
+      - __influxdb1x_platform_cfg is mapping
+      - __influxdb1x_platform_cfg.name is string and __influxdb1x_platform_cfg.name | length > 0
+      - __influxdb1x_platform_cfg.region is string and __influxdb1x_platform_cfg.region | length > 0
+      - __influxdb1x_platform_cfg.vpc_id is string
+      - ((__influxdb1x_platform_cfg.vpc_subnet_id is string and __influxdb1x_platform_cfg.vpc_subnet_id | length > 0) if
+        __influxdb1x_platform_cfg.vpc_id is not defined else true)
+      - __influxdb1x_platform_cfg.security_groups is defined
+      - __influxdb1x_platform_cfg.security_group_name is string and __influxdb1x_platform_cfg.security_group_name | length > 0
+      - __influxdb1x_platform_cfg.security_group_description is string and __influxdb1x_platform_cfg.security_group_description | length > 0
+      - __influxdb1x_platform_cfg.security_group_rules is sequence
+      - __influxdb1x_platform_cfg.security_group_rules_egress is sequence
+      - __influxdb1x_platform_cfg.tags is mapping
+      - __influxdb1x_platform_cfg.private_key_path is string and __influxdb1x_platform_cfg.private_key_path | length > 0
+      - __influxdb1x_platform_cfg.public_key_path is string and __influxdb1x_platform_cfg.public_key_path | length > 0
+      - __influxdb1x_platform_cfg.influxdb_cluster_cfg is mapping and __influxdb1x_platform_cfg.influxdb_cluster_cfg | length > 0
+      - __influxdb1x_platform_cfg.private_key_source_path is string and __influxdb1x_platform_cfg.private_key_source_path | length > 0
+      - __influxdb1x_platform_cfg.creation_timeout is integer and __influxdb1x_platform_cfg.creation_timeout >= 0
+      - __influxdb1x_platform_cfg.boot_wait_seconds is integer and __influxdb1x_platform_cfg.boot_wait_seconds >= 0
+    fail_msg: "Platform configuration is invalid"
+    success_msg: "Platform configuration is valid"
+
