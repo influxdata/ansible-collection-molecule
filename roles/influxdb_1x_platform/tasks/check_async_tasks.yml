@@ -1,0 +1,10 @@
+---
+
+- name: Check async job status
+  ansible.builtin.async_status:
+    jid: "{{ __influxdb1x_platform_async_job.ansible_job_id }}"
+  register: __influxdb1x_platform_ssh_connectivity_check_status
+  until: __influxdb1x_platform_ssh_connectivity_check_status.finished
+  retries: 40
+  delay: 10
+

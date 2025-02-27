@@ -1,0 +1,79 @@
+---
+# Remove a Potato test cluster
+
+- name: Validate configuration data
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
+
+- name: Look up subnets to determine VPCs (if needed)
+  amazon.aws.ec2_vpc_subnet_info:
+    subnet_ids: "{{ __influxdb1x_platform_cfg.vpc_subnet_id }}"
+  when: not __influxdb1x_platform_cfg.vpc_id
+  register: __influxdb1x_platform_subnet_info
+
+- name: Validate discovered information
+  ansible.builtin.assert:
+    that:
+      - __influxdb1x_platform_cfg.vpc_id or (__influxdb1x_platform_subnet_info.results[0].subnets | length > 0)
+    quiet: true
+
+- name: Search for existing EC2 instances
+  vars:
+    __influxdb1x_platform_ec2_valid_statuses:
+      - pending
+      - running
+      - shutting-down
+      - stopped
+      - stopping
+  amazon.aws.ec2_instance_info:
+    profile: "{{ __influxdb1x_platform_cfg.aws_profile | default(omit) }}"
+    region: "{{ __influxdb1x_platform_cfg.region }}"
+    filters:
+      "tag:molecule-run-id": "{{ influxdb1x_platform_run_config.run_id }}"
+      instance-state-name: "{{ __influxdb1x_platform_ec2_valid_statuses }}"
+  register: __influxdb1x_platform_ec2_instances
+
+- name: Terminate Potato cluster
+  when: __influxdb1x_platform_ec2_instances.instances | length > 0
+  block:
+    - name: 🥔 Terminate InfluxDB Enterprise cluster
+      ansible.builtin.uri:
+        url: "{{ influxdb1x_platform_url }}/clusters/{{ __influxdb1x_platform_ec2_instances.instances[0].tags.ClusterID }}"
+        method: PATCH
+        user: "{{ influxdb1x_platform_api_creds.username }}"
+        password: "{{ influxdb1x_platform_api_creds.password }}"
+        body_format: json
+        body:
+          machines_status: terminated
+        status_code: 204
+      register: __influxdb1x_platform_cluster_termination_potato_response
+
+    - name: Wait for Potato to mark cluster as terminated
+      ansible.builtin.uri:
+        url: "{{ influxdb1x_platform_url }}/clusters/{{ __influxdb1x_platform_ec2_instances.instances[0].tags.ClusterID }}"
+        method: GET
+        user: "{{ influxdb1x_platform_api_creds.username }}"
+        password: "{{ influxdb1x_platform_api_creds.password }}"
+      register: __influxdb1x_platform_cluster_termination_potato_response
+      until: __influxdb1x_platform_cluster_termination_potato_response.json.machines_status == "terminated"
+      retries: "{{ (__influxdb1x_platform_cfg.creation_timeout | int / 10) | int }}"
+      delay: 10
+
+- name: Destroy ephemeral security groups (if needed)
+  amazon.aws.ec2_security_group:
+    profile: "{{ __influxdb1x_platform_cfg.aws_profile | default(omit) }}"
+    region: "{{ __influxdb1x_platform_cfg.region | default(omit) }}"
+    vpc_id: "{{ __influxdb1x_platform_cfg.vpc_id or __influxdb1x_platform_cfg.subnets[0] }}"
+    name: "{{ __influxdb1x_platform_cfg.security_group_name }}"
+    state: absent
+  when: __influxdb1x_platform_cfg.security_groups | length == 0
+
+- name: Remove ssh key file
+  ansible.builtin.file:
+    path: "{{ __influxdb1x_platform_cfg.private_key_path }}"
+    state: absent
+
+- name: Remove ec2 instance config file
+  ansible.builtin.file:
+    path: "{{ influxdb1x_platform_run_config_path }}"
+    state: absent
+

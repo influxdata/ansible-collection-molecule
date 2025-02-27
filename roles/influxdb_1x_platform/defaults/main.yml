@@ -1,0 +1,35 @@
+---
+# defaults file for infludb_1x_platform
+#
+# Expected variables:
+#   molecule_yml: The contents of the Molecule `molecule.yml` file
+#
+
+
+## PLATFORM CONFIGURATION ## {{{
+
+# Whether this platform should be deployed (present/absent)
+influxdb1x_platform_state: "{{ platform_target_state | default('present') }}"
+
+# Molecule platform configuration (list of dictionaries)
+influxdb1x_platform_definition: "{{ [platform_target_config] if platform_target_config is defined else (molecule_yml.platforms | default([])) }}"
+
+# Values that can be set in the molecule.yml platform definition
+#  - see the README or vars/main.yml for more information
+influxdb1x_platform_defaults: {}
+
+# Detected external IP of runtime Ansible controller
+influxdb1x_external_ip: "{{ ansible_facts.ipify_public_ip | default('') }}"
+
+# }}}
+
+
+## INFLUXDB CLUSTER CONFIGURATION ## {{{
+
+# Default configuration options passed to the InfluxDB cluster orchestrator
+# - see the README or vars/main.yml for more information
+influxdb1x_cluster_defaults: {}
+
+# }}}
+
+# vim:foldmethod=marker:foldmarker={{{,}}}:ft=yaml.ansible
