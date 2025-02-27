@@ -1,0 +1,10 @@
+---
+# Default configuration for Docker platforms.
+
+name: docker-platform
+type: docker
+image: "geerlingguy/docker-rockylinux9-ansible:latest"
+systemd: true
+privileged: false
+pull: always
+

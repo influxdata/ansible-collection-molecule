@@ -1,152 +1,21 @@
 ---
 # Add a host to the Molecule inventory
+#
+# Expected variables:
+#  - platform_exported_config: The exported platform configuration from a xxx_platform role
+#     Expected format:
+#       <instance_name>:
+#         hostvars:
+#           hostvar1: value1
+#         instance_config:
+#           name: <instance_name>
+#           connection: <connection_type>
+#
+#
 
-- name: Generate new instance configuration
-  when: platform_state == 'present'
-  block:
-    - name: Generate {{ platform_name }} instance configuration (Docker)
-      when: platform_type == 'docker'
-      ansible.builtin.set_fact:
-        __platform_new_instance_configs: "{{ [{
-          'instance': platform_name,
-          'connection': 'docker'
-          }] }}"
-        __platform_ansible_hostvars: "{{ {
-          platform_name: {
-            'ansible_connection': 'community.docker.docker'
-          } } }}"
-
-    - name: Generate {{ platform_name }} instance configuration (EC2)
-      when: platform_type == 'ec2'
-      ansible.builtin.set_fact:
-        # NOTE: This depends on the ec2_platform_instance_config being set by the ec2_platform role
-        __platform_new_instance_configs: "{{ [ec2_platform_instance_config] }}"
-        __platform_ansible_connection: "ssh"
-        __platform_ansible_hostvars: "{{ {
-          ec2_platform_instance_config.instance: {
-          'ansible_connection': 'ssh',
-          'ansible_host': ec2_platform_instance_config.address,
-          'ansible_port': ec2_platform_instance_config.port,
-          'ansible_user': ec2_platform_instance_config.user,
-          'ansible_ssh_private_key_file': ec2_platform_instance_config.identity_file
-          } } }}"
-
-    - name: Generate data for potato instance type
-      when: platform_type == 'potato'
-      block:
-        - name: Generate {{ platform_name }} instance configuration (Potato)
-          ansible.builtin.set_fact:
-            # NOTE: This depends on potato_platform_instance_configs (list) being set by the potato_platform role
-            __platform_new_instance_configs: "{{ potato_platform_instance_configs }}"
-            __platform_ansible_connection: "ssh"
-
-        - name: Generate {{ platform_name }} hostvars configuration (Potato)
-          ansible.builtin.set_fact:
-            __platform_ansible_hostvars: "{{ __platform_ansible_hostvars | default({}) | combine({
-              __platform_instance.instance: {
-                'ansible_connection': 'ssh',
-                'ansible_host': __platform_instance.address,
-                'ansible_port': __platform_instance.port,
-                'ansible_user': __platform_instance.user,
-                'ansible_ssh_private_key_file': __platform_instance.identity_file,
-                'ec2_tag_vars': __platform_instance.extra_hostvars
-              } }, recursive=true) }}"
-          loop: "{{ potato_platform_instance_configs }}"
-          loop_control:
-            loop_var: __platform_instance
-            label: "{{ __platform_instance.instance }}"
-
-    - name: Show hostvars configuration
-      ansible.builtin.debug:
-        var: __platform_ansible_hostvars
-        verbosity: 1
-
-- name: Load existing instance configuration
-  block:
-    - name: Load existing instance configuration file
-      ansible.builtin.slurp:
-        src: "{{ platform_molecule_ephemeral_directory }}/instance_config.yml"
-      register: __platform_current_instance_config_b64
-      failed_when: false
-
-    - name: Decode instance configuration data
-      ansible.builtin.set_fact:
-        __platform_instance_config: "{{ __platform_current_instance_config_b64.content | default('') | b64decode | from_yaml }}"
-
-# Build the Molecule instance configuration object
-- name: Process instance configuration
-  when: __platform_instance_config is truthy or __platform_new_instance_configs is defined
+- name: Configure Molecule instances
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/instance_config.yml"
-  loop: "{{ __platform_new_instance_configs if __platform_new_instance_configs is defined else __platform_instance_config | default([], true) }}"
-  loop_control:
-    loop_var: __platform_target_instance_config
-    label: "{{ __platform_target_instance_config.instance }}"
 
-- name: Manage molecule instance config file
-  block:
-    - name: Write {{ platform_name }} instance config file
-      when:
-        - __platform_instance_config_update_needed
-        - __platform_instance_config | default(false, true)is truthy or __platform_new_instance_config | default(false, true) is truthy
-      ansible.builtin.copy:
-        content: "{{ __platform_instance_config | to_nice_yaml(indent=2) }}"
-        dest: "{{ platform_molecule_ephemeral_directory }}/instance_config.yml"
-        mode: "0600"
-
-    # If the file would be empty, remove it
-    - name: Remove molecule instance config file
-      when:
-        - platform_state == 'absent'
-        - __platform_current_instance_config | default(false) is not truthy
-        - __platform_new_instance_config | default(false) is not truthy
-      ansible.builtin.file:
-        path: "{{ molecule_instance_config }}"
-        state: absent
-
-- name: Load existing molecule inventory
-  when: __platform_run_count | int > 1 or platform_state == 'absent'
-  block:
-    - name: Load existing molecule inventory file
-      ansible.builtin.slurp:
-        src: "{{ platform_molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
-      register: __platform_current_molecule_inventory_b64
-      failed_when: false
-
-    - name: Decode instance configuration data
-      ansible.builtin.set_fact:
-        __platform_molecule_inventory: "{{ __platform_current_molecule_inventory_b64.content | default({}) | b64decode | from_yaml }}"
-
-- name: Show instance configuration
-  ansible.builtin.debug:
-    var: __platform_instance_config
-    verbosity: 1
-
-- name: Process instance inventory membership
-  when: __platform_instance_config | default(false) is truthy or __platform_new_instance_configs | default(false) is truthy
+- name: Configure Molecule Ansible inventory
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/ansible_inventory.yml"
-  loop: "{{ __platform_new_instance_configs if __platform_new_instance_configs is defined else __platform_instance_config | default([], true) }}"
-  loop_control:
-    loop_var: __platform_target_instance_config
-    label: "{{ __platform_target_instance_config.instance }}"
-
-- name: Write {{ platform_name }} to molecule inventory file
-  when: __platform_molecule_inventory is truthy
-  ansible.builtin.copy:
-    content: |
-      {{ __platform_molecule_inventory | default({}) | to_nice_yaml(indent=2) }}
-    dest: "{{ platform_molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
-    mode: "0600"
-
-- name: Force inventory refresh
-  ansible.builtin.meta: refresh_inventory
-
-- name: Fail if molecule group is missing
-  when:
-    - __platform_molecule_inventory is defined
-    - platform_state == 'present'
-  ansible.builtin.assert:
-    that: "'molecule' in groups"
-    fail_msg: |
-      molecule group was not found inside inventory groups: {{ groups }}
-
 

@@ -1,0 +1,54 @@
+---
+# Load collection meta data from manifest for this collection
+
+- name: Load collection meta data from manifest
+  ansible.builtin.slurp:
+    src: "{{ role_path }}/../../MANIFEST.json"
+  register: __init_collection_manifest_meta_b64
+  ignore_errors: true
+
+- name: Load collection meta data from galaxy config
+  when: __init_collection_manifest_meta_b64 is failed
+  ansible.builtin.slurp:
+    src: "{{ role_path }}/../../galaxy.yml"
+  register: __init_collection_galaxy_meta_b64
+  ignore_errors: true
+
+- name: 🐜 Show collection manifest meta data
+  ansible.builtin.debug:
+    var: __init_collection_manifest_meta_b64.content | b64decode | from_json
+    verbosity: 1
+
+- name: 🐜 Show collection galaxy meta data
+  ansible.builtin.debug:
+    var: __init_collection_galaxy_meta_b64.content | b64decode | from_yaml
+    verbosity: 1
+
+- name: Extract collection meta info
+  vars:
+    __init_collection_manifest_meta: "{{ (__init_collection_manifest_meta_b64.content | b64decode | from_json).collection_info | default({}) }}"
+    __init_collection_galaxy_meta: "{{ (__init_collection_galaxy_meta_b64.content | b64decode | from_yaml) | default({}) }}"
+  ansible.builtin.set_fact:
+    __init_collection_meta: "{{ __init_collection_manifest_meta | default(__init_collection_galaxy_meta, true) }}"
+
+- name: Validate meta info
+  ansible.builtin.assert:
+    that:
+      - __init_collection_meta is truthy
+      - __init_collection_meta is mapping
+      - __init_collection_meta.name is defined
+      - __init_collection_meta.version is defined
+      - __init_collection_meta.namespace is defined
+      - __init_collection_meta.repository is defined
+    fail_msg: "Collection meta information is missing or incomplete. Validate the collection manifest or galaxy.yml file."
+    success_msg: "Collection meta information is valid."
+
+- name: Set collection information
+  ansible.builtin.set_fact:
+    __init_collection_version: >-
+      {{ init_collection_version if init_collection_version is truthy
+      else __init_collection_meta.version }}
+    __init_collection_name: "{{ __init_collection_meta.name }}"
+    __init_collection_namespace: "{{ __init_collection_meta.namespace }}"
+    __init_collection_repository: "{{ __init_collection_meta.repository }}"
+

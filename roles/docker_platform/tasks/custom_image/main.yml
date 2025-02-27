@@ -1,0 +1,92 @@
+---
+# Build a custom image based upon the provided image, running Systemd as PID 1.
+#
+# Expected variables:
+#   - __docker_platform_config_custom: The desired Molecule platform configurations requiring custom entrypoint configuration for systemd
+#   - docker_platform_modify_image_buildpath: The path to the build directory for the custom image
+#
+
+- name: Build a custom docker image to launch systemd with PID 1
+  block:
+  - name: Exec Systemd | Prepare build directory
+    loop: "{{ __docker_platform_config_custom }}"
+    loop_control:
+      loop_var: __docker_platform_definition
+      label: "{{ __docker_platform_definition.name }}"
+    ansible.builtin.include_tasks: buildfiles.yml
+
+  - name: Exec Systemd | Launch image build
+    loop: "{{ __docker_platform_config_custom }}"
+    loop_control:
+      loop_var: __docker_platform_definition
+      label: "{{ __docker_platform_definition.name }}"
+    vars:
+      __docker_platform_built_image_name: molecule-local-build/{{ __docker_platform_definition.image | split(':') | first | split('/') | last }}-custom
+    community.docker.docker_image:
+      name: "{{ __docker_platform_built_image_name }}"
+      build:
+        path: "{{ docker_platform_modify_image_buildpath }}/{{ __docker_platform_definition.name }}"
+        cache_from: "{{ __docker_platform_definition.image }}"
+      source: build
+      force_source: true    # Always build a new image when this is run
+      tag: "{{ __docker_platform_definition.image | split(':') | last }}"
+    register: __docker_platform_image_build_tasks
+    async: 600
+    poll: 0
+
+  - name: 🐜 Exec Systemd | Show image build job tasks
+    ansible.builtin.debug:
+      var: __docker_platform_image_build_tasks
+      verbosity: 1
+
+  - name: Exec Systemd | Wait for image build to complete
+    loop: "{{ __docker_platform_image_build_tasks.results }}"
+    loop_control:
+      loop_var: __docker_platform_image_build_task
+      label: "{{ __docker_platform_image_build_task.__docker_platform_definition.name }}"
+    ansible.builtin.async_status:
+      jid: "{{ __docker_platform_image_build_task.ansible_job_id }}"
+    register: __docker_platform_image_build_result
+    until: __docker_platform_image_build_result.finished
+    retries: 60
+    delay: 10
+
+  - name: Exec Systemd | Clean up async cache
+    loop: "{{ __docker_platform_image_build_tasks.results }}"
+    loop_control:
+      loop_var: __docker_platform_image_build_task_cleanup
+      label: "{{ __docker_platform_image_build_task_cleanup.__docker_platform_definition.name }}"
+    ansible.builtin.async_status:
+      jid: "{{ __docker_platform_image_build_task_cleanup.ansible_job_id }}"
+      mode: cleanup
+
+  - name: Exec Systemd | Show image build details
+    ansible.builtin.debug:
+      var: __docker_platform_image_build_result
+      verbosity: 1
+
+  - name: Exec Systemd | Generate new platform configuration
+    # Replace the image in the platform configuration with the custom image
+    ansible.builtin.set_fact:
+      __docker_platform_config_runtime: >-
+        {%- set __docker_platform_config_custom_build = [] -%}
+        {%- for __docker_platform_definition in __docker_platform_config_custom -%}
+          {%- set __docker_platform_entry_update = __docker_platform_definition | combine({
+            'image': (__docker_platform_image_build_result.results
+              | json_query('[?__docker_platform_image_build_task.__docker_platform_definition.name==`' + __docker_platform_definition.name + '`]')
+              | first).image.RepoTags | first,
+            'pull': 'never',
+            'hostname': 'custom-' + __docker_platform_definition.name
+          }) -%}
+          {%- set _ = __docker_platform_config_custom_build.append(__docker_platform_entry_update) -%}
+        {%- endfor -%}
+        {{ __docker_platform_config_custom_build }}
+
+  - name: Exec Systemd | Merge new platform configuration
+    ansible.builtin.set_fact:
+      docker_platform_config: >-
+        {{
+          docker_platform_config | rejectattr('name', 'in', __docker_platform_config_runtime | map(attribute='name') | list)
+          | list + __docker_platform_config_runtime
+        }}
+

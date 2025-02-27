@@ -1,0 +1,11 @@
+---
+# Default configuration for ec2 platforms
+
+name: ec2-platform
+type: ec2
+image: "ami-01bd836275f79352c"
+instance_type: "t3.micro"
+region: "us-east-2"
+vpc_id: "vpc-12345678"
+vpc_subnet_id: "subnet-12345678"
+

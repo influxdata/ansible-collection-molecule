@@ -45,6 +45,86 @@ Requirements
 **Python Modules**
 - `boto3`
 
+## AWS Configuration
+
+These tests require an AWS account with the following or similar permissions:
+
+<details>
+<summary>AWS AIM permissions policy</summary>
+
+```json
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:RunInstances",
+                "ec2:DescribeInstances",
+                "ec2:DescribeInstanceStatus",
+                "ec2:DescribeSubnets",
+                "ec2:CreateSecurityGroup",
+                "ec2:DescribeSecurityGroups",
+                "ec2:CreateTags",
+                "ec2:DescribeTags"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:TerminateInstances",
+                "ec2:StopInstances",
+                "ec2:StartInstances",
+                "ec2:RebootInstances",
+                "ec2:DescribeInstanceAttribute",
+                "ec2:ModifyInstanceAttribute"
+            ],
+            "Resource": "arn:aws:ec2:*:*:instance/*",
+            "Condition": {
+                "StringLike": {
+                    "ec2:ResourceTag/Name": "molecule*"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DeleteSecurityGroup",
+                "ec2:AuthorizeSecurityGroupIngress",
+                "ec2:AuthorizeSecurityGroupEgress",
+                "ec2:RevokeSecurityGroupIngress",
+                "ec2:RevokeSecurityGroupEgress",
+                "ec2:ModifySecurityGroupRules"
+            ],
+            "Resource": "arn:aws:ec2:*:*:security-group/*",
+            "Condition": {
+                "StringLike": {
+                    "ec2:ResourceTag/Name": "molecule*"
+                }
+            }
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DeleteTags"
+            ],
+            "Resource": [
+                "arn:aws:ec2:*:*:instance/*",
+                "arn:aws:ec2:*:*:security-group/*"
+            ],
+            "Condition": {
+                "StringLike": {
+                    "ec2:ResourceTag/Name": "molecule*"
+                }
+            }
+        }
+    ]
+}
+```
+
+</details>
+
 Role Variables
 --------------
 
@@ -94,15 +174,7 @@ To utilize this role, use the `platform` role that is included with this collect
   tasks:
     - name: Create platform(s)
       ansible.builtin.include_role:
-        name: syndr.molecule.platform
-      vars:
-        platform_name: "{{ item.name }}"
-        platform_state: present
-        platform_type: "{{ item.type }}"
-        platform_molecule_cfg: "{{ item }}"
-      loop: "{{ molecule_yml.platforms }}"
-      loop_control:
-        label: item.name
+        name: influxdata.molecule.platform
 
 # We want to avoid errors like "Failed to create temporary directory"
 - name: Validate that inventory was refreshed
@@ -129,5 +201,5 @@ MIT
 Author Information
 ------------------
 
-- [@syndr](https://github.com/syndr/)
+- InfluxData
 

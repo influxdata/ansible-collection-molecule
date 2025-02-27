@@ -1,6 +1,9 @@
 ---
 # tasks file for docker_platform
 
+- name: Validate configuration
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_cfg.yml"
+
 - name: Platform is deployed
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/present.yml"
   when: docker_platform_state == 'present'
@@ -8,4 +11,21 @@
 - name: Platform is not deployed
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/absent.yml"
   when: docker_platform_state == 'absent'
+
+- name: Export platform configuration
+  ansible.builtin.set_fact:
+    platform_exported_config: >-
+      {%- set __platform_instances = {} -%}
+      {%- for __platform in __platform_config -%}
+        {%- set _ = __platform_instances.update({
+          __platform.name: {
+            'hostvars': __platform.hostvars | default({}) | combine(docker_platform_hostvars_base),
+            'instance_config': {
+              'instance': __platform.name,
+              'connection': 'docker'
+            }
+          }
+        }) -%}
+      {%- endfor -%}
+      {{ __platform_instances }}
 

@@ -1,11 +1,9 @@
 
-FROM {{ platform.image }}
-COPY bash.service /etc/systemd/system/bash.service
-COPY entrypoint.sh /entrypoint.sh
-RUN chown root:root /entrypoint.sh \
-    && chmod 755 /entrypoint.sh \
-    && chown root:root /etc/systemd/system/bash.service \
-    && chmod 644 /etc/systemd/system/bash.service \
-    && systemctl enable bash.service
-ENTRYPOINT ["/entrypoint.sh"]
+FROM {{ __docker_platform_definition.image }}
+
+{% for __run_command in __docker_platform_definition.exec_systemd_build_commands %}
+RUN {{ __run_command }}
+{% endfor %}
+
+ENTRYPOINT ["{{ __docker_platform_definition.exec_systemd_path | default(docker_platform_container_defaults.exec_systemd_path) }}"]
 

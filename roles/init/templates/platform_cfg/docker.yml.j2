@@ -1,0 +1,9 @@
+- name: {{ init_platform.name | default('docker-platform') }}
+  type: {{ init_platform.type }}
+  # See platform documentation at {{ __init_collection_repository }}/tree/main/roles/{{ init_platform.type }}_platform/README.md
+  {% for key, value in init_platform.items() %}
+  {% if key not in ['name', 'type', 'hostvars'] %}
+  {{ key }}: {{ value }}
+  {% endif %}
+  {% endfor %}
+  hostvars: {{ init_platform.hostvars | default({}) }}

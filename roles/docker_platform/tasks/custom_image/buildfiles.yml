@@ -1,0 +1,24 @@
+---
+# Deploy buildfiles for a custom docker image
+#
+# Expected input:
+#  __docker_platform_definition: The Molecule Docker platform configuration (dict)
+#
+
+- name: Exec Systemd | Build path exists
+  ansible.builtin.file:
+    path: "{{ docker_platform_modify_image_buildpath }}/{{ __docker_platform_definition.name }}"
+    state: directory
+    mode: "0755"
+
+- name: Exec Systemd | Build file exists
+  # Add additional build files to this list as needed
+  loop:
+    - Dockerfile.j2
+  loop_control:
+    loop_var: __docker_platform_item
+  ansible.builtin.template:
+    src: templates/{{ __docker_platform_item }}
+    dest: "{{ docker_platform_modify_image_buildpath}}/{{ __docker_platform_definition.name }}/{{ __docker_platform_item | regex_replace('\\.j2$', '') }}"
+    mode: "0644"
+

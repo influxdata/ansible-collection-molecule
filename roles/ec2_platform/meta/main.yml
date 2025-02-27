@@ -1,9 +1,8 @@
 galaxy_info:
   role_name: ec2_platform
-  namespace: syndr
-  author: syndr
+  namespace: influxdata
+  author: InfluxData
   description: Provision and deprovision an EC2-based Molecule platform using Ansible.
-  company: UltronCORE
 
   # If the issue tracker for your role is not on github, uncomment the
   # next line and provide a value

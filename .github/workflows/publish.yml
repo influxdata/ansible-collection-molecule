@@ -1,0 +1,30 @@
+---
+
+name: Deploy Collection
+on:
+  release:
+    types:
+      - published
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: |
+      github.event.release.prerelase == false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag latest release
+        uses: EndBug/latest-tag@latest
+        with:
+          ref: latest
+          description: This tag is automatically generated on new releases.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Deploy Collection
+        uses: artis3n/ansible_galaxy_collection@v2
+        if: ${{ secrets.GALAXY_API_KEY != '' }}
+        with:
+          api_key: '${{ secrets.GALAXY_API_KEY }}'
+

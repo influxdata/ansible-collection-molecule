@@ -1,9 +1,8 @@
 galaxy_info:
   role_name: platform
-  namespace: syndr
-  author: syndr
+  namespace: influxdata
+  author: InfluxData
   description: Create and destroy a platform for Molecule testing
-  company: UltronCORE
 
   # If the issue tracker for your role is not on github, uncomment the
   # next line and provide a value

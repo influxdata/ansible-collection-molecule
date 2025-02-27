@@ -1,37 +1,133 @@
 ---
 # defaults file for docker_platform
 
-# Name of this Molecule platform
-docker_platform_name: instance
-
 # Whether this platform should be deployed on the current system (present/absent)
-docker_platform_state: present
+docker_platform_state: "{{ platform_target_state | default('present') }}"
 
-# Docker image that this platform runs
-docker_platform_image: "geerlingguy/docker-rockylinux9-ansible:latest"
+# Molecule platform configuration (list of dictionaries)
+docker_platform_config: "{{ platform_target_config | default(molecule_yml.platforms | default([])) }}"
 
-# Should the provided image be modified at runtime
-docker_platform_modify_image: false
+# Default values for Docker containers managed by this role
+docker_platform_container_defaults:
+  # Image to use for the container
+  image: "geerlingguy/docker-rockylinux9-ansible:latest"
 
-# Path to docker build files that should be used to modify the image. Files are treated as templates
-#  and can contain jinja2 templating language ("{{ my_var }}" etc.)
-docker_platform_modify_image_buildpath: "{{ molecule_ephemeral_directory }}/build"
+  # Run the container in privileged mode (WARNING: Less secure!)
+  privileged: false
 
-# Command to be executed at runtime on the container
-#  Leave as "" to use container default
-docker_platform_command: ""
+  # List of capabilities to add to the container
+  capabilities: []
 
-# Is this a SystemD enabled container?
-docker_platform_systemd: true
+  # List of capabilities to drop from the container
+  cap_drop: []
 
-# A list of Docker volumes that should be attached to the container
-docker_platform_volumes: []
+  # Command to run in the container
+  command: ""
 
-# Run the container in Privileged mode (greater host access, less security!)
-docker_platform_privileged: false
+  # Container hostname
+  hostname: molecule-ci-{{ __docker_platform_instance.name | default('instance') }}
 
-# A list of tmpfs filesystem paths to be passed to the container
-docker_platform_tmpfs: []
+  # Number of CPUs to allocate to the container
+  cpus: 2
+
+  # List of device path and read rate (bytes per second) from device.
+  #  Each entry should be a dictionary with keys 'path' and 'rate'.
+  device_read_bps: []
+
+  # List of device path and write rate (bytes per second) to device.
+  #  Each entry should be a dictionary with keys 'path' and 'rate'.
+  device_write_bps: []
+
+  # List of device path and read rate (IO per second) from device.
+  #  Each entry should be a dictionary with keys 'path' and 'rate'.
+  device_read_iops: []
+
+  # List of device path and write rate (IO per second) to device.
+  #  Each entry should be a dictionary with keys 'path' and 'rate'.
+  device_write_iops: []
+
+  # List of host device bindings to add to the container.
+  #  Each binding is a mapping expressed in the format:
+  #    <path_on_host>:<path_in_container>:<cgroup_permissions>
+  devices: []
+
+  # List of DNS options
+  dns_opts: []
+
+  # List of DNS search domains
+  dns_search_domains: []
+
+  # List of DNS servers
+  dns_servers: []
+
+  # The URL or Unix socket path used to connect to the Docker API
+  docker_host: "{{ lookup('env', 'DOCKER_HOST') | default('unix:///var/run/docker.sock') }}"
+
+  # Dict of host-to-IP mappings, where each host name is a key in the dictionary. Each host name will be added to the container’s /etc/hosts file.
+  #  Instead of an IP address, the special value host-gateway can also be used, which resolves to the host’s gateway
+  #  IP and allows containers to connect to services running on the host.
+  etc_hosts: {}
+
+  # Dict of labels to apply to the container
+  labels: {}
+
+  # Memory limit in format <number>[<unit>].
+  #  Number is a positive integer.
+  #  Unit can be B (byte), K (kibibyte, 1024B), M (mebibyte), G (gibibyte), T (tebibyte), or P (pebibyte).
+  memory: "0"
+
+  # Connect the container to a network.
+  #  Choices are bridge, host, none, container:<name|id>, <network_name> or default.
+  network_mode: default
+
+  # List of ports to publish from the container to the host.
+  #  Use docker CLI syntax: 8000, 9000:8000, or 0.0.0.0:9000:8000,
+  #  where 8000 is a container port, 9000 is a host port, and 0.0.0.0 is a host interface.
+  published_ports: []
+
+  # Pull setting for the container image (never,missing,always)
+  pull: always
+
+  # List of security options in the form of "label:user:User"
+  security_opts: []
+
+  # State of the container
+  state: started
+
+  # Whether the container runs systemd
+  systemd: false
+
+  # Attempt to execute systemd in the container on start
+  #  WARNING:
+  #  - This can cause issues with some containers
+  #  - Not required if the container is already built with systemd running as PID 1
+  #  - Expects the container to have systemd packages present
+  #  - Rebuilds the container with a custom entrypoint, provided by 'exec_systemd_path'
+  exec_systemd: false
+
+  # Path to the systemd binary in the container
+  #  - This is only used if 'exec_systemd' is true
+  exec_systemd_path: /usr/lib/systemd/systemd
+
+  # List of commands to run as part of the docker build process to enable systemd
+  #  - This is only used if 'exec_systemd' is true
+  #  - Each command should be a string
+  #  - Commands are run in the order they are defined, using the docker RUN directive
+  exec_systemd_build_commands: []
+
+  # Tmpfs mounts to add to the container
+  tmpfs: []
+
+  # Volumes to mount in the container
+  #  Use docker CLI-style syntax: /host:/container[:mode]
+  #
+  #  Mount modes can be a comma-separated list of various modes such as
+  #   ro, rw, consistent, delegated, cached, rprivate, private, rshared, shared, rslave, slave, and nocopy.
+  #
+  #   Note that the docker daemon might not support all modes and combinations of such modes.
+  #
+  # SELinux hosts can additionally use z or Z to use a shared or private label for the volume.
+  volumes: []
 
 # Ansible hostvars that should be associated with the ansible test "host" created by this role
 #  stored in the format `name: value`

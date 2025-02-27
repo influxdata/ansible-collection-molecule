@@ -2,84 +2,72 @@
 # Add an instance to the list of Molecule hosts
 #
 # Expected variables:
-#  - __platform_instance_config: The current list of instance configurations
-#  - __platform_target_instance_config: The configuration for the new instance
-#  - __platform_ansible_hostvars: Additional hostvars to add to the instance configuration
-#
-# Outputs:
-#  - __platform_instance_config: The updated list of instance configurations
-#  - __platform_instance_config_update_needed: Whether the instance configuration file needs to be updated
+#  - platform_state: The desired state of the platform instance (present, absent)
+#  - platform_instance_config_from_file: The current instance configuration from the platform configuration file
+#  - platform_molecule_ephemeral_directory: The directory where the instance configuration file should be written
+#  - platform_exported_config: The exported platform configuration from a xxx_platform role
 #
 
+- name: Platform Instance Config | Validate configuration
+  ansible.builtin.assert:
+    that:
+      - platform_state in ['present', 'absent']
+      - platform_instance_config_from_file | type_debug == 'list'
+      - platform_exported_config is defined
+      - platform_exported_config is mapping
+    fail_msg: "Invalid platform instance configuration provided!"
+    success_msg: "Platform instance configuration validated."
 
-- name: We are adding/updating an instance
+- name: 🐜 Show platform config
+  ansible.builtin.debug:
+    var: platform_exported_config
+    verbosity: 1
+
+- name: 🐜 Show platform instance config from file
+  ansible.builtin.debug:
+    var: platform_instance_config_from_file
+    verbosity: 1
+
+- name: Platform Instance Config | Create | Build new instance configuration
   when: platform_state == 'present'
-  block:
-    - name: Instance configuration {{ __platform_target_instance_config.instance }} is valid
-      ansible.builtin.assert:
-        that:
-          - __platform_target_instance_config is defined
-          - __platform_target_instance_config.instance is string
-        fail_msg: "Instance configuration for {{ __platform_target_instance_config.instance }} failed! Check the platform configuration."
-        success_msg: "Instance configuration for {{ __platform_target_instance_config.instance }} is defined"
+  vars:
+    __platform_new_instance_configs: "{{ platform_exported_config.values() | map(attribute='instance_config') | list }}"
+  ansible.builtin.set_fact:
+    __platform_merged_instance_config: >-
+      {{
+        platform_instance_config_from_file
+        | rejectattr('instance', 'in', __platform_new_instance_configs | map(attribute='instance') | list)
+        | list
+        + __platform_new_instance_configs
+      }}
 
-    - name: Add user-specified hostvars to instance configuration
-      when:
-        - platform_molecule_cfg.hostvars is defined
-        - platform_molecule_cfg.hostvars is truthy
-      ansible.builtin.set_fact:
-        __platform_ansible_hostvars: "{{ __platform_ansible_hostvars | combine(platform_molecule_cfg.hostvars, recursive=true) }}"
-
-    - name: 🪲 Current instance config
-      ansible.builtin.debug:
-        var: __platform_instance_config
-        verbosity: 1
-
-    - name: 🪲 New instance config
-      ansible.builtin.debug:
-        var: __platform_target_instance_config
-        verbosity: 1
-
-    - name: 🪲 Ansible hostvars
-      ansible.builtin.debug:
-        var: __platform_ansible_hostvars
-        verbosity: 1
-
-    - name: Instance name matching this already exists in configuration
-      when:
-        - __platform_instance_config is truthy
-        - __platform_target_instance_config.instance in __platform_instance_config | map(attribute='instance') | list
-      block:
-        - name: Mark config update as unneeded
-          ansible.builtin.set_fact:
-            __platform_instance_config_update_needed: false
-
-        - name: Existing configuration does not match desired
-          when: __platform_target_instance_config != (__platform_instance_config |
-            selectattr('instance', 'equalto', __platform_target_instance_config.instance) | list | first)
-          block:
-            - name: Remove existing {{ __platform_target_instance_config.instance }} configuration (does not match)
-              ansible.builtin.set_fact:
-                __platform_instance_config: "{{
-                  __platform_instance_config | rejectattr('instance', 'equalto', __platform_target_instance_config.instance) | list }}"
-                __platform_instance_config_update_needed: true
-
-    - name: Append new instance to config
-      ansible.builtin.set_fact:
-        __platform_instance_config: >-
-          {{ __platform_instance_config | default([], true) + [__platform_target_instance_config]
-          if __platform_target_instance_config | default(false, true) is truthy
-          else __platform_instance_config }}
-
-- name: Remove instance configuration
+- name: Platform Instance Config | Destroy | Build new instance configuration
   when: platform_state == 'absent'
-  block:
-    - name: Remove existing {{ __platform_target_instance_config.instance }} configuration
-      when:
-        - __platform_instance_config is truthy
-        - __platform_target_instance_config.instance in __platform_instance_config | map(attribute='instance') | list
-      ansible.builtin.set_fact:
-        __platform_instance_config: "{{
-          __platform_instance_config | rejectattr('instance', 'equalto', __platform_target_instance_config.instance) | list }}"
-        __platform_instance_config_update_needed: true
+  vars:
+    __platform_old_instance_configs: "{{ platform_exported_config.values() | map(attribute='instance_config') | list }}"
+  ansible.builtin.set_fact:
+    __platform_merged_instance_config: >-
+      {{
+        platform_instance_config_from_file
+        | rejectattr('instance', 'in', platform_exported_config | selectattr('instance_config', 'defined') | map(attribute='instance_config') | list)
+        | list
+      }}
+
+- name: Platform Instance Config | Write new instance configuration
+  when:
+    - __platform_merged_instance_config is defined
+    - __platform_merged_instance_config | length > 0
+  ansible.builtin.copy:
+    content: |
+      {{ __platform_merged_instance_config | to_nice_yaml(indent=2) }}
+    dest: "{{ platform_molecule_ephemeral_directory }}/instance_config.yml"
+    mode: "0644"
+
+- name: Platform Instance Config | Remove instance configuration file
+  when:
+    - __platform_merged_instance_config is not defined
+    - __platform_merged_instance_config | length == 0
+  ansible.builtin.file:
+    path: "{{ platform_molecule_ephemeral_directory }}/instance_config.yml"
+    state: absent
 

@@ -1,5 +1,7 @@
 galaxy_info:
-  author: syndr
+  role_name: init
+  author: InfluxData
+  namespace: influxdata
   description: Initialize the Molecule testing framework for a project
 
   # If the issue tracker for your role is not on github, uncomment the

@@ -1,75 +1,135 @@
 ---
 # Remove ec2 test resources
 
-- name: Load Molecule instance config
+- name: EC2 Deprovision | Load Molecule instance config
   ansible.builtin.set_fact:
     __ec2_instance_molecule_instance_config: "{{ (lookup('file', molecule_instance_config, errors='ignore') or '{}') | from_yaml }}"
 
-- name: Validate platform configurations
-  ansible.builtin.assert:
-    that:
-      - ec2_platform is mapping
-      - ec2_platform.name is string and ec2_platform.name | length > 0
-      - ec2_platform.aws_profile is string
-      - ec2_platform.key_inject_method is in ["cloud-init", "ec2"]
-      - ec2_platform.key_name is string and ec2_platform.key_name | length > 0
-      - ec2_platform.region is string
-      - ec2_platform.security_group_name is string and ec2_platform.security_group_name | length > 0
-      - ec2_platform.security_groups is sequence
-      - ec2_platform.vpc_id is string
-      - ec2_platform.vpc_subnet_id is string and ec2_platform.vpc_subnet_id | length > 0
-    quiet: true
-
-- name: Look up subnets to determine VPCs (if needed)
+- name: EC2 Deprovision | Look up subnets to determine VPCs (if needed)
+  loop: "{{ ec2_platforms | selectattr('vpc_id', 'undefined') }}"
+  loop_control:
+    loop_var: __ec2_platform
+    label: "{{ __ec2_platform.name }}"
   amazon.aws.ec2_vpc_subnet_info:
-    profile: "{{ ec2_platform.aws_profile | default(omit) }}"
-    region: "{{ ec2_platform.region | default(omit) }}"
-    subnet_ids: "{{ ec2_platform.vpc_subnet_id }}"
-  when: not ec2_platform.vpc_id
+    subnet_ids: "{{ __ec2_platform.vpc_subnet_id }}"
+    region: "{{ __ec2_platform.region }}"
   register: __ec2_platform_subnet_info
 
-- name: Validate discovered information
+- name: EC2 Deprovision | Validate discovered information
+  loop: "{{ ec2_platforms | selectattr('vpc_id', 'undefined') }}"
+  loop_control:
+    loop_var: __ec2_platform
+    label: "{{ __ec2_platform.name }}"
+  vars:
+    __ec2_platform_discovered_vpc_id: >-
+      {{
+        __ec2_platform.vpc_id
+        or
+        (__ec2_platform_subnet_info.results
+        | selectattr('__ec2_platform.name', 'equalto', __ec2_platform.name)).subnets.vpc_id
+      }}
   ansible.builtin.assert:
-    that: ec2_platform.vpc_id or (__ec2_platform_subnet_info.subnets | length > 0)
+    that:
+      - (__ec2_platform.vpc_id or (__ec2_platform_discovered_vpc_id | length > 0))
     quiet: true
-    fail_msg: "No VPCs found for subnet: {{ ec2_platform.vpc_subnet_id }}"
 
-- name: Look up EC2 instance by tag
+# TODO: Store instance id in platform run config on disk, and only look up instances if needed
+# TODO: Don't delete all instances if more are returned than in the provided platform config
+#       (IE: if the platform config is a subset of the full scenario config)
+
+- name: EC2 Deprovision | Look up EC2 instance by tag
+  loop: "{{ ec2_platforms }}"
+  loop_control:
+    loop_var: __ec2_platform
+    label: "{{ __ec2_platform.name }}"
   amazon.aws.ec2_instance_info:
-    profile: "{{ ec2_platform.aws_profile | default(omit) }}"
-    region: "{{ ec2_platform.region | default(omit) }}"
+    profile: "{{ __ec2_platform.aws_profile | default(omit) }}"
+    region: "{{ __ec2_platform.region | default(omit) }}"
     filters:
       "tag:molecule-run-id": "{{ ec2_platform_run_config.run_id }}"
+      "tag:instance": "{{ __ec2_platform.name }}"
   register: __ec2_instance_info
 
-- name: Destroy ephemeral EC2 instances
-  when: __ec2_instance_info.instances | length > 0
-  amazon.aws.ec2_instance:
-    profile: "{{ ec2_platform.aws_profile | default(omit) }}"
-    region: "{{ ec2_platform.region | default(omit) }}"
-    instance_ids: "{{ __ec2_instance_info.instances | map(attribute='instance_id') | list }}"
-    vpc_subnet_id: "{{ ec2_platform.vpc_subnet_id }}"
-    state: absent
-  register: __ec2_instance_destroy
+- name: EC2 Deprovision | Remove instances
+  vars:
+    __ec2_platform_existing_instances: "{{ __ec2_instance_info.results | map(attribute='instances') | flatten }}"
+  block:
+    - name: EC2 Deprovision | 🐜 Show EC2 instances
+      ansible.builtin.debug:
+        var: __ec2_platform_existing_instances
+        verbosity: 1
 
-- name: Destroy ephemeral security groups (if needed)
+    - name: EC2 Deprovision | Validate EC2 instances
+      ansible.builtin.assert:
+        # WARNING: This will fail if platforms were to support more than one instance
+        that:
+          - __ec2_platform_existing_instances | length <= ec2_platforms | length
+        fail_msg: "More instances found than expected! Found {{ __ec2_platform_existing_instances | length }} instances."
+        success_msg: "{{ __ec2_platform_existing_instances | length }} instances found for termination."
+
+    - name: EC2 Deprovision | Destroy ephemeral EC2 instance
+      loop: "{{ __ec2_platform_existing_instances }}"
+      loop_control:
+        loop_var: __ec2_platform_existing_instance
+        label: "{{ __ec2_platform_existing_instance.tags.instance }}"
+      vars:
+        __ec2_platform: "{{ ec2_platforms | selectattr('name', 'equalto', __ec2_platform_existing_instance.tags.instance) | first }}"
+      amazon.aws.ec2_instance:
+        profile: "{{ __ec2_platform.aws_profile | default(omit) }}"
+        region: "{{ __ec2_platform.region | default(omit) }}"
+        instance_ids: "{{ __ec2_platform_existing_instance.instance_id }}"
+        vpc_subnet_id: "{{ __ec2_platform.vpc_subnet_id }}"
+        state: absent
+      register: __ec2_instance_destroy_job
+      async: 300
+      poll: 0
+
+    - name: EC2 Deprovision | 🐜 Show EC2 instance destroy job status
+      ansible.builtin.debug:
+        var: __ec2_instance_destroy_job
+        verbosity: 1
+
+    - name: EC2 Deprovision | Instance destruction is complete
+      loop: "{{ __ec2_instance_destroy_job.results }}"
+      loop_control:
+        loop_var: __ec2_instance_destroy_result
+        label: "{{ __ec2_instance_destroy_result.__ec2_platform_existing_instance.tags.instance }}"
+      ansible.builtin.async_status:
+        jid: "{{ __ec2_instance_destroy_result.ansible_job_id }}"
+      register: __ec2_instance_destroy_results
+      until: __ec2_instance_destroy_results.finished
+      retries: "{{ (300 / 5) | int }}"
+      delay: 5
+
+- name: EC2 Deprovision | Destroy ephemeral security groups (if needed)
+  loop: "{{ ec2_platforms | selectattr('security_groups', 'falsy') }}"
+  loop_control:
+    loop_var: __ec2_platform
+    label: "{{ __ec2_platform.name }}"
   amazon.aws.ec2_security_group:
-    profile: "{{ ec2_platform.aws_profile | default(omit) }}"
-    region: "{{ ec2_platform.region | default(omit) }}"
-    vpc_id: "{{ ec2_platform.vpc_id or __ec2_platform_subnet_info.subnets[0] }}"
-    name: "{{ ec2_platform.security_group_name }}"
+    profile: "{{ __ec2_platform.aws_profile | default(omit) }}"
+    region: "{{ __ec2_platform.region | default(omit) }}"
+    vpc_id: "{{ __ec2_platform.vpc_id or __ec2_platform_subnet_info.subnets[0] }}"
+    name: "{{ __ec2_platform.security_group_name }}"
     state: absent
-  when: ec2_platform.security_groups | length == 0
 
-- name: Destroy ephemeral keys (if needed)
+- name: EC2 Deprovision | Destroy ephemeral keys (if needed)
+  loop: "{{ ec2_platforms | selectattr('key_inject_method', 'equalto', 'ec2') }}"
+  loop_control:
+    loop_var: __ec2_platform
+    label: "{{ __ec2_platform.name }}"
   amazon.aws.ec2_key:
-    profile: "{{ ec2_platform.aws_profile | default(omit) }}"
-    region: "{{ ec2_platform.region | default(omit) }}"
-    name: "{{ ec2_platform.key_name }}"
+    profile: "{{ __ec2_platform.aws_profile | default(omit) }}"
+    region: "{{ __ec2_platform.region | default(omit) }}"
+    name: "{{ __ec2_platform.key_name }}"
     state: absent
-  when: ec2_platform.key_inject_method == "ec2"
 
-- name: Remove ec2 instance config file
+- name: EC2 Deprovision | Remove ec2 instance config file
+  # Only run when this execution is operating on the full scenario configuration
+  #  - we want to avoid removing the instance config if there may still be deployed instances
+  #    (IE: if this role is called on individual items in the platforms list)
+  #  - Molecule's builtin ephemeral dir cleanup should remove the instance config in this case
+  when: ec2_platform_definition | length == molecule_yml.platforms | default([]) | length
   ansible.builtin.file:
     path: "{{ ec2_platform_run_config_path }}"
     state: absent

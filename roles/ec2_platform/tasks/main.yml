@@ -6,15 +6,13 @@
     var: ec2_platform_definition
     verbosity: 1
 
-# Merge the defaults with any options provided to this role
-- name: Generate runtime configuration
-  ansible.builtin.set_fact:
-    ec2_platform: "{{ ec2_platform_defaults | combine(ec2_platform_definition | default({})) }}"
-
-- name: 🦋 Show ec2_platform
+- name: 🦋 Show ec2_platforms
   ansible.builtin.debug:
-    var: ec2_platform
+    var: ec2_platforms
     verbosity: 1
+
+- name: Validate configuration
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_cfg.yml"
 
 - name: Platform is deployed
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/present.yml"
@@ -23,4 +21,35 @@
 - name: Platform is not deployed
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/absent.yml"
   when: ec2_platform_state == 'absent'
+
+- name: Display platform configuration
+  ansible.builtin.debug:
+    var: ec2_platform_instance_configs
+    verbosity: 1
+
+- name: Export platform configuration
+  ansible.builtin.set_fact:
+    platform_exported_config: >-
+      {%- set __platform_instances = {} -%}
+      {%- for __platform in __platform_config -%}
+        {%- if ec2_platform_instance_configs is defined -%}
+          {%- set __platform_instance_config = ec2_platform_instance_configs | selectattr('instance', 'equalto', __platform.name) | first -%}
+          {%- set __platform_hostvars_merged = {
+              'ansible_host': __platform_instance_config.address,
+              'ansible_port': __platform_instance_config.port,
+              'ansible_user': __platform_instance_config.user,
+              'ansible_ssh_private_key_file': __platform_instance_config.identity_file,
+              'ec2_instance_id': __platform_instance_config.instance_id,
+            } -%}
+          {%- endif -%}
+        {%- set _ = __platform_instances.update({
+          __platform.name: {
+            'hostvars': __platform.hostvars | default({})
+              | combine(ec2_platform_hostvars_base)
+              | combine(__platform_hostvars_merged | default({})),
+            'instance_config': __platform_instance_config | default({})
+          }
+        }) -%}
+      {%- endfor -%}
+      {{ __platform_instances }}
 

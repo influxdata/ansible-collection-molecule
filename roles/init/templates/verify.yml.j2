@@ -1,6 +1,7 @@
 ---
 # Verify that the role being tested has done what it's supposed to
 
+{% raw %}
 - name: Verify
   hosts: molecule
   tasks:
@@ -18,4 +19,5 @@
     - name: Add your verification tasks here
       ansible.builtin.debug:
         msg: "IE: For a 'users' role, check that the test user exists"
+{% endraw %}
 

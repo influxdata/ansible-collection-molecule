@@ -1,0 +1,38 @@
+---
+# Make sure provided Molecule platform configuration is valid
+#
+# Expected variables:
+#  - __platform_config: The current list of platform configurations
+#
+
+- name: Validate | Show platform config
+  ansible.builtin.debug:
+    var: __platform_config
+    verbosity: 1
+
+- name: Validate | Platform configuration
+  ansible.builtin.assert:
+    that:
+      - __platform_config is truthy
+      - __platform_config | length > 0
+    fail_msg: "No platform configuration provided, or platform configuration invalid!"
+    success_msg: "Platform configuration provided."
+
+- name: Validate | Unique attributes
+  ansible.builtin.assert:
+    that:
+      - __platform_config | map(attribute='name') | length > 0
+      - __platform_config | map(attribute='name') | length == __platform_config | length
+      - __platform_config | map(attribute='name') | list | length == __platform_config | map(attribute='name') | list | unique | list | length
+    fail_msg: "No platforms defined or duplicate/missing platform names provided!"
+    success_msg: "Platform unique attributes validated."
+
+- name: Validate | Platform types
+  ansible.builtin.assert:
+    that:
+      - __platform_config | map(attribute='type') | length > 0
+      - __platform_config | map(attribute='type') | length == __platform_config | length
+      - __platform_config | map(attribute='type') | unique | length == 1
+    fail_msg: "Types must be the same for all platforms provided!"
+    success_msg: "Platform types validated."
+

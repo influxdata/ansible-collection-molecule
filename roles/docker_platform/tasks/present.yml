@@ -1,101 +1,162 @@
 ---
 # Create a docker container for use by molecule
 #
-# Expected to be called in a loop with `platform` defined as the loop var
-#   (loop off of `platforms` list in molecule.yml)
+# Expected input:
+#  - docker_platform_config: The Molecule Docker platform configuration (list)
+#  - docker_platform_container_defaults: Default values for Docker containers (dict)
+#
 
+- name: Create Platform | Build custom images
+  vars:
+    __docker_platform_config_custom: >-
+      {{
+        docker_platform_config
+        | selectattr('exec_systemd', 'defined')
+        | selectattr('exec_systemd', 'equalto', true)
+        | list
+      }}
+  when: __docker_platform_config_custom | length > 0
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/custom_image/main.yml"
 
-- name: Initialize state
-  ansible.builtin.set_fact:
-    # Number of times this role has been included during this playbook run
-    __docker_platform_run_count: "{{ __docker_platform_run_count | default(0) | int + 1 }}"
-
-- name: Docker image needs to be customized
-  block:
-    - name: Check build path
-      ansible.builtin.stat:
-        path: "{{ docker_platform_modify_image_buildpath }}"
-      register: __docker_platform_buildpath_stat
-
-    - name: Build directory doesn't exist
-      block:
-        - name: Create build directory
-          ansible.builtin.file:
-            path: "{{ docker_platform_modify_image_buildpath }}"
-            state: directory
-            mode: 0755
-
-        - name: Copy templates
-          ansible.builtin.template:
-            src: templates/{{ __docker_platform_item }}
-            dest: "{{ docker_platform_modify_image_buildpath}}/{{ __docker_platform_item | regex_replace('\\.j2$', '') }}"
-          loop:
-            - bash.service.j2
-            - entrypoint.sh.j2
-            - Dockerfile.j2
-          loop_control:
-            loop_var: __docker_platform_item
-      when: __docker_platform_buildpath_stat.stat.exists is false
-
-    - name: Build local image name
-      ansible.builtin.set_fact:
-        __docker_platform_built_image_name: "molecule-local-build/{{ docker_platform_image | split(':') | first | split('/') | last }}-custom"
-
-    - name: Docker image is built
-      community.docker.docker_image:
-        name: "{{ __docker_platform_built_image_name }}"
-        build:
-          path: "{{ docker_platform_modify_image_buildpath }}"
-          cache_from: "{{ docker_platform_image }}"
-        source: build
-        force_source: true    # Always build a new image when this is run
-        tag: latest
-      register: image_build_output
-
-    - name: Show image build details
-      ansible.builtin.debug:
-        var: image_build_output
-        verbosity: 1
-  when: docker_platform_modify_image
-
-- name: Build docker volume list
-  ansible.builtin.set_fact:
-    __docker_platform_volume_list: "{{ docker_platform_volumes + ['/sys/fs/cgroup:/sys/fs/cgroup:rw']
-      if docker_platform_systemd
-      else docker_platform_volumes }}"
-
-- name: "{{ docker_platform_name }} docker container is present and running"
+- name: Create Platform | Docker container is provisioned
+  loop: "{{ docker_platform_config }}"
+  loop_control:
+    loop_var: __docker_platform_instance
+    label: "{{ __docker_platform_instance.name }}"
+  vars:
+    __docker_platform_container_cfg:
+      name: "{{ __docker_platform_instance.name}}"
+      image: "{{ __docker_platform_instance.image | default(docker_platform_container_defaults.image) }}"
+      hostname: "{{ __docker_platform_instance.hostname | default(docker_platform_container_defaults.hostname) }}"
+      command: "{{ __docker_platform_instance.command | default(docker_platform_container_defaults.command) }}"
+      volumes: "{{ __docker_platform_instance.volumes | default(docker_platform_container_defaults.volumes) }}"
+      privileged: "{{ __docker_platform_instance.privileged | default(docker_platform_container_defaults.privileged) }}"
+      state: "{{ __docker_platform_instance.state | default(docker_platform_container_defaults.state) }}"
+      systemd: "{{ __docker_platform_instance.systemd | default(docker_platform_container_defaults.systemd) }}"
+      tmpfs: "{{ __docker_platform_instance.tmpfs | default(docker_platform_container_defaults.tmpfs) }}"
+      capabilities: "{{ __docker_platform_instance.capabilities | default(docker_platform_container_defaults.capabilities) }}"
+      cap_drop: "{{ __docker_platform_instance.cap_drop | default(docker_platform_container_defaults.cap_drop) }}"
+      cpus: "{{ __docker_platform_instance.cpus | default(docker_platform_container_defaults.cpus) }}"
+      device_read_bps: "{{ __docker_platform_instance.device_read_bps | default(docker_platform_container_defaults.device_read_bps) }}"
+      device_write_bps: "{{ __docker_platform_instance.device_write_bps | default(docker_platform_container_defaults.device_write_bps) }}"
+      device_read_iops: "{{ __docker_platform_instance.device_read_iops | default(docker_platform_container_defaults.device_read_iops) }}"
+      device_write_iops: "{{ __docker_platform_instance.device_write_iops | default(docker_platform_container_defaults.device_write_iops) }}"
+      devices: "{{ __docker_platform_instance.devices | default(docker_platform_container_defaults.devices) }}"
+      dns_opts: "{{ __docker_platform_instance.dns_opts | default(docker_platform_container_defaults.dns_opts) }}"
+      dns_search_domains: "{{ __docker_platform_instance.dns_search_domains | default(docker_platform_container_defaults.dns_search_domains) }}"
+      dns_servers: "{{ __docker_platform_instance.dns_servers | default(docker_platform_container_defaults.dns_servers) }}"
+      docker_host: "{{ __docker_platform_instance.docker_host | default(docker_platform_container_defaults.docker_host) }}"
+      etc_hosts: "{{ __docker_platform_instance.etc_hosts | default(docker_platform_container_defaults.etc_hosts) }}"
+      labels: "{{ __docker_platform_instance.labels | default(docker_platform_container_defaults.labels) }}"
+      memory: "{{ __docker_platform_instance.memory | default(docker_platform_container_defaults.memory) }}"
+      network_mode: "{{ __docker_platform_instance.network_mode | default(docker_platform_container_defaults.network_mode) }}"
+      published_ports: "{{ __docker_platform_instance.published_ports | default(docker_platform_container_defaults.published_ports) }}"
+      pull: "{{ __docker_platform_instance.pull | default(docker_platform_container_defaults.pull) }}"
+      security_opts: "{{ __docker_platform_instance.security_opts | default(docker_platform_container_defaults.security_opts) }}"
   community.docker.docker_container:
-    name: "{{ docker_platform_name }}"
-    image: "{{ __docker_platform_built_image_name | default(docker_platform_image) }}"
-    state: started
-    command: "{{ docker_platform_command }}"
+    name: "{{ __docker_platform_container_cfg.name }}"
+    image: "{{ __docker_platform_container_cfg.image }}"
+    state: "{{ __docker_platform_container_cfg.state }}"
+    command: "{{ __docker_platform_container_cfg.command }}"
     log_driver: json-file
-    hostname: molecule-ci-{{ docker_platform_name }}
+    hostname: "{{ __docker_platform_container_cfg.hostname }}"
     init: false
-    cgroupns_mode: "{{ 'host' if docker_platform_systemd is true else 'private' }}"
-    privileged: "{{ docker_platform_privileged }}"
-    tmpfs: "{{ docker_platform_tmpfs + ['/run', '/run/lock'] if docker_platform_systemd else docker_platform_tmpfs }}"
-    volumes: "{{ __docker_platform_volume_list }}"
-  register: __docker_platform_create_result
+    cgroupns_mode: "{{ 'host' if __docker_platform_container_cfg.systemd is true else 'private' }}"
+    privileged: "{{ __docker_platform_container_cfg.privileged }}"
+    tmpfs: >-
+      {{
+        __docker_platform_container_cfg.tmpfs + docker_platform_systemd_tmpfs
+        if __docker_platform_container_cfg.systemd
+        else
+        __docker_platform_container_cfg.tmpfs
+      }}
+    volumes: >-
+      {{
+        __docker_platform_container_cfg.volumes + (docker_platform_systemd_volumes | map('regex_replace', '(.+)', '\1:\1:rw') | list)
+        if __docker_platform_container_cfg.systemd
+        else
+        __docker_platform_container_cfg.volumes
+      }}
+    capabilities: "{{ __docker_platform_container_cfg.capabilities }}"
+    cap_drop: "{{ __docker_platform_container_cfg.cap_drop }}"
+    cpus: "{{ __docker_platform_container_cfg.cpus }}"
+    device_read_bps: "{{ __docker_platform_container_cfg.device_read_bps }}"
+    device_write_bps: "{{ __docker_platform_container_cfg.device_write_bps }}"
+    device_read_iops: "{{ __docker_platform_container_cfg.device_read_iops }}"
+    device_write_iops: "{{ __docker_platform_container_cfg.device_write_iops }}"
+    devices: "{{ __docker_platform_container_cfg.devices }}"
+    dns_opts: "{{ __docker_platform_container_cfg.dns_opts }}"
+    dns_search_domains: "{{ __docker_platform_container_cfg.dns_search_domains }}"
+    dns_servers: "{{ __docker_platform_container_cfg.dns_servers }}"
+    docker_host: "{{ __docker_platform_container_cfg.docker_host }}"
+    etc_hosts: "{{ __docker_platform_container_cfg.etc_hosts }}"
+    labels: "{{ __docker_platform_container_cfg.labels }}"
+    memory: "{{ __docker_platform_container_cfg.memory }}"
+    network_mode: "{{ __docker_platform_container_cfg.network_mode }}"
+    published_ports: "{{ __docker_platform_container_cfg.published_ports }}"
+    pull: "{{ __docker_platform_container_cfg.pull }}"
+    security_opts: "{{ __docker_platform_container_cfg.security_opts }}"
+  register: __docker_platform_create_jobs
+  async: 300
+  poll: 0
 
-- name: Print creation output
+- name: Create Platform | Print creation job status
   ansible.builtin.debug:
-    msg: "{{ __docker_platform_create_result }}"
+    var: __docker_platform_create_jobs
     verbosity: 1
 
-- name: Fail if  is not running
-  block:
-    - name: Retrieve {{ docker_platform_name }} container log
-      ansible.builtin.command:
-        cmd: docker logs {{ __docker_platform_create_result.container.Name }}
-      changed_when: false
-      register: __docker_platform_logfile_cmd
+- name: Create Platform | Wait for container creation to complete
+  loop: "{{ __docker_platform_create_jobs.results }}"
+  loop_control:
+    loop_var: __docker_platform_create_result
+    label: "{{ __docker_platform_create_result.__docker_platform_instance.name }}"
+  ansible.builtin.async_status:
+    jid: "{{ __docker_platform_create_result.ansible_job_id }}"
+  register: __docker_platform_create_results
+  until: __docker_platform_create_results.finished
+  retries: 60
+  delay: 1
+  changed_when: false
 
-    - name: Container {{ docker_platform_name }} failed to start
-      ansible.builtin.fail:
-        msg: "{{ __docker_platform_logfile_cmd.stdout ~  __docker_platform_logfile_cmd.stderr }}"
-  when: >
-    __docker_platform_create_result.container.State.ExitCode != 0 or
-    not __docker_platform_create_result.container.State.Running
+- name: Create Platform | Print container creation result
+  ansible.builtin.debug:
+    var: __docker_platform_create_results
+    verbosity: 1
+
+- name: Create Platform | Clean up async cache
+  loop: "{{ __docker_platform_create_results.results }}"
+  loop_control:
+    loop_var: __docker_platform_cache_cleanup
+    label: "{{ __docker_platform_cache_cleanup.__docker_platform_create_result.__docker_platform_instance.name }}"
+  ansible.builtin.async_status:
+    jid: "{{ __docker_platform_cache_cleanup.__docker_platform_create_result.ansible_job_id }}"
+    mode: cleanup
+
+- name: Create Platform | Collect failed container logs
+  loop: "{{ __docker_platform_create_results.results | selectattr('container.State.Running', 'equalto', False) }}"
+  loop_control:
+    loop_var: __docker_platform_failed_container
+    label: "{{ __docker_platform_failed_container_name }}"
+  vars:
+    __docker_platform_failed_container_name: "{{ __docker_platform_failed_container.__docker_platform_create_result.__docker_platform_instance.name }}"
+  ansible.builtin.command:
+    cmd: docker logs {{ __docker_platform_failed_container_name }}
+  register: __docker_platform_container_faillogs
+  changed_when: false
+
+- name: Create Platform | Container creation failed
+  loop: "{{ __docker_platform_container_faillogs.results }}"
+  loop_control:
+    loop_var: __docker_platform_logfile_cmd
+    label: "{{ __docker_platform_failed_container_name }}"
+  vars:
+    __docker_platform_failed_container_name: >-
+      {{
+        __docker_platform_logfile_cmd.__docker_platform_failed_container.__docker_platform_create_result.__docker_platform_instance.name
+      }}
+  ansible.builtin.fail:
+    msg: |
+      Return Code: {{ __docker_platform_logfile_cmd.__docker_platform_failed_container.container.State.ExitCode }}
+      Stdout: {{ __docker_platform_logfile_cmd.stdout }}
+      Stderr: {{ __docker_platform_logfile_cmd.stderr }}
 

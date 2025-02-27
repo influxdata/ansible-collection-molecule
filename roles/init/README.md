@@ -207,5 +207,5 @@ MIT
 Author Information
 ------------------
 
-- [@syndr](https://github.com/syndr/)
+- InfluxData
 
