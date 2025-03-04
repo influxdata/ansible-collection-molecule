@@ -9,17 +9,15 @@ driver:
 platforms:
   - name: influxdb1x-platform-test
     type: influxdb_1x
-    vpc_id: vpc-07bd460b98a3fb162
+    #vpc_id: vpc-07bd460b98a3fb162
     region: us-west-2
     orchestrator_address: https://potato.a.influxcloud.us
-    private_key_source_path: /home/syndr@styx.ultroncore.net/.ssh/cloud1-dev-potato
+    private_key_source_path: "{{ lookup('env', 'HOME') }}/.ssh/molecule-ci-influxdb1x"
     ssh_user: core
     ssh_port: 22
     cluster_config:
       config_tag: 1.11.6.1-staging-pro
       init: latest
-      password: ku4kQePLTI6RBYtq0KuY
-      username: test-ci-admin
     ignore_machines_status: true
     creation_timeout: 240
     hostvars: {}

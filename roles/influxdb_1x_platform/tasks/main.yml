@@ -25,12 +25,12 @@
     - name: Validate configuration data
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
 
+    - name: Load InfluxDB cluster information
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/load_cluster_info.yml"
+
     - name: STOP HERE
       ansible.builtin.fail:
         msg: "STOP HERE"
-
-    - name: Load InfluxDB cluster information
-      ansible.builtin.include_tasks: "{{ role_path }}/tasks/load_cluster_info.yml"
 
     - name: Platform is deployed
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/create_cluster.yml"

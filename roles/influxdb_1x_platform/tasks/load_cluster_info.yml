@@ -1,31 +1,37 @@
 ---
-# Load information about this InfluxDB cluster
+# Load any existing information about the defined InfluxDB clusters
 
 - name: An existing cluster is defined
-  when:
-    - __influxdb1x_platform.cluster_id is defined
-    - __influxdb1x_platform.cluster_id | length > 0
   vars:
-    __influxdb1x_platform_existing_clusters: "{{ influxdb1x_platforms | selectattr('cluster_id', 'truthy') | list }}"
+    __influxdb1x_platform_existing_clusters: "{{ __influxdb1x_platforms | selectattr('cluster_id', 'defined') | selectattr('cluster_id', 'truthy') | list }}"
+  when: __influxdb1x_platform_existing_clusters | length > 0
   block:
-    - name: Load cluster configuration from orchestrator
-      loop: "{{ influxdb1x_platforms }}"
+    - name: DEBUG | Show existing cluster information
+      ansible.builtin.debug:
+        var: __influxdb1x_platform_existing_clusters
+        verbosity: 1
+
+    - name: Check State | Load cluster configuration from orchestrator
+      loop: "{{ __influxdb1x_platforms }}"
       loop_control:
         loop_var: __influxdb1x_platform
-        label: "{{ influxdb1x_platform.name }}"
+        label: "{{ __influxdb1x_platform.name }}"
+      vars:
+        __influxdb1x_orchestrator_url: >-
+          {{ __influxdb1x_platform.orchestrator_address }}{{ __influxdb1x_platform.orchestrator_api_path }}/clusters/{{ __influxdb1x_platform.cluster_id }}
       ansible.builtin.uri:
-        url: "{{ influxdb1x_platform_url }}/clusters/{{ __influxdb1x_platform.cluster_id }}"
+        url: "{{ __influxdb1x_orchestrator_url }}"
         method: GET
         return_content: true
         body_format: json
-        user: "{{ influxdb1x_platform_api_creds.username }}"
-        password: "{{ influxdb1x_platform_api_creds.password }}"
+        user: "{{ __influxdb1x_platform.orchestrator_username }}"
+        password: "{{ __influxdb1x_platform.orchestrator_password }}"
         status_code:
           - 200
           - 404
       register: __influxdb1x_platform_cluster_info_queries
 
-    - name: Cluster configuration not found
+    - name: Check State | Cluster configuration not found
       loop: "{{ __influxdb1x_platform_cluster_info_queries.results | selectattr('status', 'eq', 404) | list }}"
       loop_control:
         loop_var: __influxdb1x_platform_cluster_info_record
@@ -36,25 +42,16 @@
         fail_msg: Unhandled error loading cluster configuration! {{ __influxdb1x_platform_cluster_info_record }}
         success_msg: Cluster ID is not found
 
-    - name: Parse cluster configuration
+    - name: Check State | Store cluster ID mapping
       loop: "{{ __influxdb1x_platform_cluster_info_queries.results | selectattr('status', 'eq', 200) | list }}"
       loop_control:
         loop_var: __influxdb1x_platform_cluster_info_record
         label: "{{ __influxdb1x_platform_cluster_info_record.__influxdb1x_platform.name }}"
-      ansible.builtin.set_fact:
-        __influxdb1x_platform_cluster_info: "{{ __influxdb1x_platform_cluster_info | default([]) +
-          [__influxdb1x_platform_cluster_info_record.json] }}"
-
-    - name: Export cluster ID
-      when: __influxdb1x_platform_cluster_info | default([]) | length > 0
-      loop: "{{ __influxdb1x_platform_cluster_info }}"
-      loop_control:
-        loop_var: __influxdb1x_platform_cluster_detail
-        label: "{{ __influxdb1x_platform_cluster_detail.id }}"
       vars:
-        __influxdb1x_platform_name: "{{ __influxdb1x_platform_cluster_detail.__influxdb1x_platform_cluster_info_record.name }}"
+        __influxdb1x_cluster_record: "{{ __influxdb1x_platform_cluster_info_record.json }}"
+        __influxdb1x_platform_name: "{{ __influxdb1x_platform_cluster_info_record.__influxdb1x_platform.name }}"
       ansible.builtin.set_fact:
-        __influxdb1x_platform_cluster_id_mapping: "{{ __influxdb1x_platform_cluster_info | default({}) | combine({
-          __influxdb1x_platform_cluster_detail.id: __influxdb1x_platform_cluster_detail
-          }, recursive=true) }}"
+        __influxdb1x_platform_cluster_id_mapping: "{{ __influxdb1x_platform_cluster_id_mapping | combine({
+          __influxdb1x_platform_name: __influxdb1x_cluster_record.id
+          }) }}"
 

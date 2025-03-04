@@ -8,13 +8,12 @@ __influxdb1x_platform_defaults:
   ## Orchestrator Configuration ##
   #
   # URL location at which cluster orchestrator is accessible
-  orchestrator_address: http://localhost:8080
+  orchestrator_address: "{{ lookup('env', 'ORCHESTRATOR_ADDRESS') | default('http://localhost:8080') }}"
   # Path to the orchestrator API (without the base URL)
   orchestrator_api_path: /v1/potato
   # Basic auth credentials for orchestrator access
-  api_creds:
-    username: "{{ lookup('env', 'ORCHESTRATOR_API_USERNAME') | default('admin') }}"
-    password: "{{ lookup('env', 'ORCHESTRATOR_API_PASSWORD') | default('imnotsecure') }}"
+  orchestrator_username: "{{ lookup('env', 'ORCHESTRATOR_API_USERNAME') | default('admin') }}"
+  orchestrator_password: "{{ lookup('env', 'ORCHESTRATOR_API_PASSWORD') | default('imnotsecure') }}"
   # Consider a cluster creation successful, regardless of the 'machines_status' field in the orchestrator response
   ignore_machines_status: false
   # The maximum time (in seconds) to wait for cluster creation
@@ -27,6 +26,10 @@ __influxdb1x_platform_defaults:
   #
   # Hostvars that should be applied to the cluster hosts
   hostvars: {}
+
+  ## InfluxDB 1.x Configuration ##
+  # Create credentials for the influxdb admin user at runtime
+  generate_cluster_admin_creds: true
 
   ## SSH Configuration ##
   #
@@ -77,6 +80,9 @@ __influxdb1x_platform_defaults:
     - tag: Type
       hostvar: role
 
+  # Cluster unique identifier
+  cluster_id: "{{ __influxdb1x_platform_cluster_id_mapping[__influxdb1x_platform.name | default('') ] | default('', true) }}"
+
   # Internal validation
   internal_id: "{{ influxdb1x_platform_run_config.run_id }}"
 
@@ -106,14 +112,10 @@ __influxdb1x_cluster_defaults:
   meta_instance_type: t3.small
   # AWS region in which to deploy the new cluster
   region: us-west-2
-  # Create credentials for the influxdb admin user at runtime
-  generate_credentials: true
   # Username for the InfluxDB admin user
-  #  - Only used if 'generate_credentials' is set to false
-  username: ""
+  username: influxdb-admin
   # Password for the InfluxDB admin user
-  # - Only used if 'generate_credentials' is set to false
-  password: ""
+  password: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=20') }}"
   # Tags to apply to the new cluster in AWS (dictionary)
   tags:
     org: molecule
@@ -136,6 +138,9 @@ influxdb1x_platform_default_run_config:
 influxdb1x_platform_run_config_path: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/influxdb1x-platform-run-config.yml"
 influxdb1x_platform_run_config_from_file: "{{ (lookup('file', influxdb1x_platform_run_config_path, errors='ignore') or '{}') | from_yaml }}"
 influxdb1x_platform_run_config: '{{ influxdb1x_platform_default_run_config | combine(influxdb1x_platform_run_config_from_file) }}'
+
+# Runtime reference for created clusters at runtime, to the name of the platform they were created for
+__influxdb1x_platform_cluster_id_mapping: {}
 
 # Merge the defaults with any options provided to this role
 __influxdb1x_platforms: >-
