@@ -1,0 +1,44 @@
+---
+# Collect information about EC2 instances that's needed by Molecule later
+#
+# Expected input variables:
+#  - __influxdb1x_platform_instance: The instance configuration, as returned by amazon.aws.ec2_instance_info
+#
+# Output:
+#  - influxdb1x_platform_instance_configs: A list of dictionaries, each containing the instance config
+#                           needed by the `platform` role to write Molecule instance configuration
+#
+
+- name: 🐜 Show AWS instance data
+  ansible.builtin.debug:
+    var: __influxdb1x_platform_instance
+    verbosity: 1
+
+- name: Collect tags matching hostvar mappings
+  when: __influxdb1x_platform_cfg.tag_hostvar_mappings | length > 0
+  ansible.builtin.set_fact:
+    __influxdb1x_platform_tag_hostvars: "{{ __influxdb1x_platform_tag_hostvars | default({}) | combine({
+      __influxdb1x_platform_item.hostvar: __influxdb1x_platform_instance.tags[__influxdb1x_platform_item.tag]
+      }, recursive=true) }}"
+  when: __influxdb1x_platform_instance.tags[__influxdb1x_platform_item.tag] is defined
+  loop: "{{ __influxdb1x_platform_cfg.tag_hostvar_mappings }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_item
+
+# NOTE: Var is used by the `platform` role to write Molecule instance configuration
+- name: Store instance configuration
+  ansible.builtin.set_fact:
+    influxdb1x_platform_instance_configs: "{{ influxdb1x_platform_instance_configs | default([]) + [{
+      'instance': __influxdb1x_platform_instance.tags.Name,
+      'address': __influxdb1x_platform_instance.public_ip_address,
+      'user': __influxdb1x_platform_cfg.ssh_user,
+      'port': __influxdb1x_platform_cfg.ssh_port,
+      'identity_file': __influxdb1x_platform_cfg.private_key_path,
+      'extra_hostvars': __influxdb1x_platform_tag_hostvars | default({})
+      }] }}"
+
+- name: 🐜 Show instance configuration
+  ansible.builtin.debug:
+    var: influxdb1x_platform_instance_configs
+    verbosity: 1
+

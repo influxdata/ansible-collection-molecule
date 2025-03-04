@@ -1,0 +1,119 @@
+---
+# Make sure everything is 👌
+
+- name: Validate | Configuration integrity
+  loop:
+    - "{{ __influxdb1x_platform_defaults }}"
+    - "{{ __influxdb1x_cluster_defaults }}"
+  loop_control:
+    loop_var: __influxdb1x_default_cfg
+    label: "{{ ansible_loop_var }}"
+  ansible.builtin.assert:
+    that:
+      - __influxdb1x_default_cfg is mapping
+      - __influxdb1x_default_cfg.internal_id is defined
+      - __influxdb1x_default_cfg.internal_id == influxdb1x_platform_run_config.run_id
+    fail_msg: "Configuration integrity is compromised! Do not modify variables beginning with '__influxdb1x_'!"
+    success_msg: "Configuration integrity passes"
+
+- name: Validate | Orchestrator connection configuration
+  loop: "{{ __influxdb1x_platforms }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_cfg
+    label: "{{ __influxdb1x_platform_cfg.name | default('invalid name', true) }}"
+  ansible.builtin.assert:
+    that:
+      - __influxdb1x_platform_cfg is mapping
+      - __influxdb1x_platform_cfg.orchestrator_address is string and
+        __influxdb1x_platform_cfg.orchestrator_address | length > 0 and
+        __influxdb1x_platform_cfg.orchestrator_address | regex_search('http[s]?://')
+      - __influxdb1x_platform_cfg.orchestrator_username is string and __influxdb1x_platform_cfg.orchestrator_username | length > 0
+      - __influxdb1x_platform_cfg.orchestrator_password is string and __influxdb1x_platform_cfg.orchestrator_password | length > 0
+    fail_msg: "Cluster orchestrator connection configuration is invalid! Check 'orchestrator_address', 'orchestrator_username', and 'orchestrator_password'"
+    success_msg: "Orchestrator connection configuration is valid."
+
+- name: Validate | Platform configuration
+  loop: "{{ __influxdb1x_platforms }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_cfg
+    label: "{{ __influxdb1x_platform_cfg.name | default('invalid name', true) }}"
+  ansible.builtin.assert:
+    that:
+      - __influxdb1x_platform_cfg is mapping
+      - __influxdb1x_platform_cfg.name is string and __influxdb1x_platform_cfg.name | length > 0
+      - __influxdb1x_platform_cfg.creation_timeout is integer and __influxdb1x_platform_cfg.creation_timeout >= 0
+      - __influxdb1x_platform_cfg.boot_wait_seconds is integer and __influxdb1x_platform_cfg.boot_wait_seconds >= 0
+      - __influxdb1x_platform_cfg.private_key_source_path is string and __influxdb1x_platform_cfg.private_key_source_path | length > 0
+      - __influxdb1x_platform_cfg.private_key_runtime_path is string and __influxdb1x_platform_cfg.private_key_runtime_path | length > 0
+      - __influxdb1x_platform_cfg.cluster_config is mapping and __influxdb1x_platform_cfg.cluster_config | length > 0
+      - __influxdb1x_platform_cfg.hostvars is mapping
+      - __influxdb1x_platform_cfg.generate_cluster_admin_creds is boolean
+      - __influxdb1x_platform_cfg.ignore_machines_status is boolean
+      - __influxdb1x_platform_cfg.ssh_user is string and __influxdb1x_platform_cfg.ssh_user | length > 0
+      - __influxdb1x_platform_cfg.ssh_port is integer and __influxdb1x_platform_cfg.ssh_port in range(1, 65536)
+      - __influxdb1x_platform_cfg.enable_aws_config is boolean
+    fail_msg: "Platform configuration is invalid"
+    success_msg: "Platform configuration is valid"
+
+- name: Validate | AWS configuration
+  loop: "{{ __influxdb1x_platforms }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_cfg
+    label: "{{ __influxdb1x_platform_cfg.name | default('invalid name', true) }}"
+  vars:
+    __influxdb1x_aws_profile: "{{ __influxdb1x_platform_cfg.aws_profile }}"
+    __influxdb1x_aws_access_key: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
+    __influxdb1x_aws_secret_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+  ansible.builtin.assert:
+    that:
+      - __influxdb1x_platform_cfg.security_group_type in ['ephemeral', 'persistent']
+      - >-
+        ((__influxdb1x_aws_profile is string and __influxdb1x_aws_profile | length > 0) or
+        (__influxdb1x_aws_access_key is string and __influxdb1x_aws_access_key | length > 0 and
+        __influxdb1x_aws_secret_key is string and __influxdb1x_aws_secret_key | length > 0))
+      - ((__influxdb1x_aws_profile is not truthy) if __influxdb1x_aws_access_key is truthy else true)
+      - ((__influxdb1x_aws_profile is not truthy) if __influxdb1x_aws_secret_key is truthy else true)
+    fail_msg: "AWS configuration is invalid. AWS profile or access key/secret key pair must be provided."
+    success_msg: "AWS configuration is valid."
+
+- name: Validate | Ephemeral security group configuration
+  loop: "{{ __influxdb1x_platforms | selectattr('security_group_type', 'eq', 'ephemeral') | list }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_cfg
+    label: "{{ __influxdb1x_platform_cfg.name | default('invalid name', true) }}"
+  ansible.builtin.assert:
+    that:
+      - __influxdb1x_platform_cfg.enable_aws_config is true
+      - __influxdb1x_platform_cfg.security_group_name is string and __influxdb1x_platform_cfg.security_group_name | length > 0
+      - __influxdb1x_platform_cfg.ephemeral_security_group_description is string and __influxdb1x_platform_cfg.ephemeral_security_group_description | length > 0
+      - __influxdb1x_platform_cfg.ephemeral_security_group_rules.ingress | type_debug == 'list'
+      - __influxdb1x_platform_cfg.ephemeral_security_group_rules.egress | type_debug == 'list'
+    fail_msg: "Ephemeral security group configuration is invalid."
+    success_msg: "Ephemeral security group configuration is valid."
+
+- name: Validate | Cluster configuration
+  loop: "{{ __influxdb1x_platforms }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_cfg
+    label: "{{ __influxdb1x_platform_cfg.name | default('invalid name', true) }}"
+  vars:
+    __influxdb1x_cluster_cfg: "{{ __influxdb1x_platform_cfg.cluster_config }}"
+  ansible.builtin.assert:
+    that:
+      - __influxdb1x_cluster_cfg is mapping
+      - __influxdb1x_cluster_cfg.config_tag is string and __influxdb1x_cluster_cfg.config_tag | length > 0
+      - __influxdb1x_cluster_cfg.init is string and __influxdb1x_cluster_cfg.init | length > 0
+      - __influxdb1x_cluster_cfg.region is string and __influxdb1x_cluster_cfg.region | length > 0
+      - __influxdb1x_cluster_cfg.data_disk_size | regex_search('^[0-9]+$')
+      - __influxdb1x_cluster_cfg.data_instance_type | regex_search('^[a-z0-9.]+\.[a-z]+$')
+      - __influxdb1x_cluster_cfg.meta_instance_type | regex_search('^[a-z0-9.]+\.[a-z]+$')
+      - __influxdb1x_cluster_cfg.data_node_count | regex_search('^[0-9]+$')
+      - __influxdb1x_cluster_cfg.meta_node_count | regex_search('^[0-9]+$')
+      - __influxdb1x_cluster_cfg.lb_driver in ['alb', 'elb']
+      - __influxdb1x_cluster_cfg.lb_facing in ['internal', 'external']
+      - __influxdb1x_cluster_cfg.username is truthy
+      - __influxdb1x_cluster_cfg.password is truthy
+      - __influxdb1x_cluster_cfg.tags is mapping
+    fail_msg: "Cluster configuration is invalid."
+    success_msg: "Cluster configuration is valid."
+

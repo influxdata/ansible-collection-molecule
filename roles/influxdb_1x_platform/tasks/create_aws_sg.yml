@@ -1,0 +1,56 @@
+---
+# Configure the networking in AWS EC2 to allow access to the cluster hosts by Molecule
+#
+# Expected input variables:
+#
+# Output:
+#
+
+
+- name: Look up subnets to determine VPCs (if needed)
+  loop: "{{ influxdb1x_platforms | selectattr('vpc_id', 'falsy') }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_cfg
+    label: "{{ __influxdb1x_platform_cfg.name }}"
+  amazon.aws.ec2_vpc_subnet_info:
+    subnet_ids: "{{ __influxdb1x_platform_cfg.vpc_subnet_id }}"
+  register: __influxdb1x_platform_subnet_info
+
+- name: Validate discovered subnet information
+  loop: "{{ __influxdb1x_platform_subnet_info.results }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_subnet_info_record
+    label: "{{ __influxdb1x_platform_subnet_info_record.__influxdb1x_platform_cfg.name }}"
+  vars:
+    vpc_subnet: "{{ __influxdb1x_platform_subnet_info_record.subnets | first | default(None) }}"
+  ansible.builtin.assert:
+    that:
+      - vpc_subnet is truthy
+    quiet: true
+    fail_msg: "Failed to discover subnet information for {{ __influxdb1x_platform_subnet_info_record.__influxdb1x_platform_cfg.vpc_subnet_id }}!"
+
+- name: Create ephemeral security groups
+  loop: "{{ influxdb1x_platforms | selectattr('security_groups', 'falsy') }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_cfg
+    label: "{{ __influxdb1x_platform_cfg.name }}"
+  vars:
+    __influxdb1x_platform_vpc_subnet: >-
+      {{
+        __influxdb1x_platform_subnet_info.results
+        | selectattr('__influxdb1x_platform_cfg.name', 'equalto', __influxdb1x_platform_cfg.name)
+        | map(attribute='subnets') | first
+      }}
+  amazon.aws.ec2_security_group:
+    profile: "{{ __influxdb1x_platform_cfg.aws_profile | default(omit) }}"
+    iam_instance_profile: "{{ __influxdb1x_platform_cfg.iam_instance_profile | default(omit) }}"
+    region: "{{ __influxdb1x_platform_cfg.region | default(omit) }}"
+    vpc_id: "{{ __influxdb1x_platform_cfg.vpc_id or __influxdb1x_platform_vpc_subnet.vpc_id }}"
+    name: "{{ __influxdb1x_platform_cfg.security_group_name }}"
+    description: "{{ __influxdb1x_platform_cfg.security_group_description }}"
+    rules: "{{ __influxdb1x_platform_cfg.security_group_rules }}"
+    rules_egress: "{{ __influxdb1x_platform_cfg.security_group_rules_egress }}"
+    tags:
+      Name: "{{ __influxdb1x_platform_cfg.security_group_name }}"
+  register: __influxdb1x_platform_ephemeral_security_group
+

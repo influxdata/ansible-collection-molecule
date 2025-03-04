@@ -1,0 +1,68 @@
+---
+# tasks file for potato_platform
+
+- name: Run platform configuration
+  block:
+    - name: Set internal run ID
+      # Needed at beginning of execution to ensure continuity between all resources, and must be a static fact
+      ansible.builtin.set_fact:
+        __influxdb1x_run_id: "{{ influxdb1x_platform_run_config.run_id }}"
+
+    - name: Discover external IP
+      when: influxdb1x_external_ip is not truthy
+      community.general.ipify_facts:
+
+    - name: 🐞 Show provided platform configuration
+      ansible.builtin.debug:
+        var: influxdb1x_platform_definition
+        verbosity: 1
+
+    - name: 🦋 Show full platform configuration
+      ansible.builtin.debug:
+        var: __influxdb1x_platforms
+        verbosity: 1
+
+    - name: Validate configuration data
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
+
+    - name: Load InfluxDB cluster information
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/load_cluster_info.yml"
+
+    - name: STOP HERE
+      ansible.builtin.fail:
+        msg: "STOP HERE"
+
+    - name: Platform is deployed
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/create_cluster.yml"
+      when: influxdb1x_platform_state == 'present'
+
+    - name: Platform is not deployed
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/remove_cluster.yml"
+      when: influxdb1x_platform_state == 'absent'
+
+    - name: Export platform configuration
+      ansible.builtin.set_fact:
+        platform_exported_config: >-
+          {%- set __platform_instances = {} -%}
+          {%- for __platform in __platform_config -%}
+            {%- if ec2_platform_instance_configs is defined -%}
+              {%- set __platform_instance_config = ec2_platform_instance_configs | selectattr('instance', 'equalto', __platform.name) | first -%}
+              {%- set __platform_hostvars_merged = {
+                  'ansible_host': __platform_instance_config.address,
+                  'ansible_port': __platform_instance_config.port,
+                  'ansible_user': __platform_instance_config.user,
+                  'ansible_ssh_private_key_file': __platform_instance_config.identity_file,
+                  'ec2_instance_id': __platform_instance_config.instance_id,
+                } -%}
+              {%- endif -%}
+            {%- set _ = __platform_instances.update({
+              __platform.name: {
+                'hostvars': __platform.hostvars | default({})
+                  | combine(ec2_platform_hostvars_base)
+                  | combine(__platform_hostvars_merged | default({})),
+                'instance_config': __platform_instance_config | default({})
+              }
+            }) -%}
+          {%- endfor -%}
+          {{ __platform_instances }}
+
