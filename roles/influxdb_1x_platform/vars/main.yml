@@ -16,9 +16,15 @@ __influxdb1x_platform_defaults:
   orchestrator_password: "{{ lookup('env', 'ORCHESTRATOR_API_PASSWORD') | default('imnotsecure') }}"
   # Consider a cluster creation successful, regardless of the 'machines_status' field in the orchestrator response
   ignore_machines_status: false
+  # Desired value of the 'machines_status' field in the orchestrator response
+  desired_machines_status: running
+  # Desired value of the 'machines_status' field in the orchestrator response when the cluster is destroyed
+  destroyed_machines_status: terminated
   # The maximum time (in seconds) to wait for cluster creation
   #  NOTE: Wait time will always be this value if 'ignore_machines_status' is set to true
   creation_timeout: 300
+  # The maximum time (in seconds) to wait for cluster destruction
+  destruction_timeout: 300
   # The time (in seconds) to wait after initially detecting an open SSH port on cluster hosts before continuing
   boot_wait_seconds: 10
 
@@ -57,8 +63,6 @@ __influxdb1x_platform_defaults:
   security_group_type: ephemeral
   # Description for the ephemeral security group
   ephemeral_security_group_description: Ephemeral security group for Molecule instances
-  # Whether the security group should allow inbound connections from other group members
-  ephemeral_security_group_add_self: true
   # Ingress and egress rules for the ephemeral security group
   ephemeral_security_group_rules:
     ingress:
@@ -81,7 +85,14 @@ __influxdb1x_platform_defaults:
       hostvar: role
 
   # Cluster unique identifier
-  cluster_id: "{{ __influxdb1x_platform_cluster_id_mapping[__influxdb1x_platform.name | default('') ] | default('', true) }}"
+  #cluster_id: "{{ __influxdb1x_platform_cluster_id_mapping[__influxdb1x_platform.name | default('') ] | default('', true) }}"
+  # - This will only contain the cluster ID when the '__influxdb1x_platform' variable is set (IE: during a loop)
+  #cluster_id: >-
+  #  {{
+  #    influxdb1x_platform_run_config.platforms
+  #    | selectattr('name', 'eq', __influxdb1x_platform.name | default('undefined'))
+  #    | map(attribute='cluster_id') | first | default('')
+  #  }}
 
   # Internal validation
   internal_id: "{{ influxdb1x_platform_run_config.run_id }}"
@@ -121,6 +132,9 @@ __influxdb1x_cluster_defaults:
     org: molecule
     env: ci
     notes: Created by Molecule
+    molecule-run-id: "{{ influxdb1x_platform_run_config.run_id }}"
+  # Version of the Orchestrator API (string)
+  version: "2"
 
   # Internal validation
   internal_id: "{{ influxdb1x_platform_run_config.run_id }}"
@@ -133,19 +147,33 @@ influxdb1x_platform_default_run_id: "{{ influxdb1x_platform_run_config_from_file
   | default(__influxdb1x_run_id_random) }}"
 influxdb1x_platform_default_run_config:
   run_id: "{{ __influxdb1x_run_id | default(influxdb1x_platform_default_run_id) }}"
-  platforms: []
+  platforms: >-
+    {{
+      influxdb1x_platform_run_config_from_file.platforms
+      | default([])
+    }}
 
 influxdb1x_platform_run_config_path: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/influxdb1x-platform-run-config.yml"
 influxdb1x_platform_run_config_from_file: "{{ (lookup('file', influxdb1x_platform_run_config_path, errors='ignore') or '{}') | from_yaml }}"
-influxdb1x_platform_run_config: '{{ influxdb1x_platform_default_run_config | combine(influxdb1x_platform_run_config_from_file) }}'
+influxdb1x_platform_run_config: >-
+  {{ influxdb1x_platform_default_run_config | combine(influxdb1x_platform_run_config_from_file, recursive=True) }}
 
 # Runtime reference for created clusters at runtime, to the name of the platform they were created for
 __influxdb1x_platform_cluster_id_mapping: {}
+
+# Full URL to the orchestrator API
+#  - This is a derived value, and should not be set directly
+#  - It expects the '__influxdb1x_platform' variable to be set at the time of access (IE: during a loop)
+__influxdb1x_orchestrator_api_url: >-
+  {{ __influxdb1x_platform.orchestrator_address | default('') ~ __influxdb1x_platform.orchestrator_api_path | default('') }}
 
 # Merge the defaults with any options provided to this role
 __influxdb1x_platforms: >-
   {%- set __platforms = [] -%}
   {%- for __platform in influxdb1x_platform_definition -%}
+    {%- set __platform_from_file = influxdb1x_platform_run_config.platforms | default([])
+      | selectattr('name', 'defined')
+      | selectattr('name', 'eq', __platform.name) -%}
     {%- set __platform_cluster_cfg = influxdb1x_cluster_defaults
       | combine(__influxdb1x_cluster_defaults, recursive=True)
       | combine(__platform.cluster_config | default({}), recursive=True) -%}
@@ -154,7 +182,8 @@ __influxdb1x_platforms: >-
       }) -%}
     {%- set __platform = influxdb1x_platform_defaults
       | combine(__influxdb1x_platform_defaults, recursive=True)
-      | combine(__platform, recursive=True) -%}
+      | combine(__platform, recursive=True)
+      | combine(__platform_from_file, recursive=True) -%}
     {%- set _ = __platforms.append(__platform) -%}
   {%- endfor -%}
   {{ __platforms }}
@@ -162,3 +191,7 @@ __influxdb1x_platforms: >-
 # Current runtime information from the orchestrator regarding this cluster
 __influxdb1x_platform_cluster_info: {}
 
+# API responses for clusters created during this run
+__influxdb1x_platform_creation_responses: []
+
+# vim:foldmethod=marker:foldmarker={{{,}}}:ft=yaml.ansible

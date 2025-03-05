@@ -1,97 +1,138 @@
 ---
-# Create a cluster using Potato
+# Create a cluster using a centralized orchestrator
 
-- name: Ephemeral AWS security group exists
-  when: influxdb1x_platform_configure_aws_networking
-  ansible.builtin.include_tasks: "{{ role_path }}/tasks/create_aws_sg.yml"
-
-- name: No existing instances found, create a new cluster
-  when: __influxdb1x_platform_existing_ec2_instances.instances | length == 0
+- name: Create any new clusters that don't yet exist
   vars:
-    # Inject Molecule tags into the Potato cluster configuration
-    __influxdb1x_platform_molecule_tags:
-      tags:
-        molecule-run-id: "{{ influxdb1x_platform_run_config.run_id }}"
-        created_by: Molecule CI
+    __influxdb1x_new_platforms: >-
+      {{
+        __influxdb1x_platforms | selectattr('cluster_id', 'defined')
+        | selectattr('cluster_id', 'falsy')
+        + __influxdb1x_platforms | selectattr('cluster_id', 'undefined')
+        | list
+      }}
   block:
-    - name: 🐜 Show Potato cluster configuration
+    - name: Create | 🐜 DEBUG | Show new platforms
+      loop: "{{ __influxdb1x_new_platforms }}"
+      loop_control:
+        loop_var: __influxdb1x_platform
+        label: "{{ __influxdb1x_platform.name }}"
       ansible.builtin.debug:
-        var: __influxdb1x_platform_potato_cluster_runtime_cfg
+        var: __influxdb1x_platform
         verbosity: 1
 
-    - name: STOP HERE
-      ansible.builtin.fail:
-        msg: "STOP HERE"
-
-    - name: 🥔 Create InfluxDB Enterprise cluster
-      vars:
-        __influxdb1x_platform_potato_cluster_runtime_cfg: "{{ __influxdb1x_platform_potato_cluster_cfg | combine(__influxdb1x_platform_molecule_tags, recursive=true) }}"
+    - name: Create | Provision InfluxDB 1.x Enterprise cluster
+      loop: "{{ __influxdb1x_new_platforms }}"
+      loop_control:
+        loop_var: __influxdb1x_platform
+        label: "{{ __influxdb1x_platform.name }}"
       ansible.builtin.uri:
-        url: "{{ influxdb1x_platform_url }}/clusters"
+        url: "{{ __influxdb1x_orchestrator_api_url }}/clusters"
         body_format: json
-        body: "{{ __influxdb1x_platform_potato_cluster_runtime_cfg }}"
+        body: "{{ __influxdb1x_platform.cluster_config | to_json }}"
         method: POST
-        user: "{{ influxdb1x_platform_api_creds.username }}"
-        password: "{{ influxdb1x_platform_api_creds.password }}"
+        user: "{{ __influxdb1x_platform.orchestrator_username }}"
+        password: "{{ __influxdb1x_platform.orchestrator_password }}"
         status_code:
           - 200
           - 201
-      register: __influxdb1x_platform_cluster_creation_orchestrator_response
+      register: __influxdb1x_platform_cluster_creation_orchestrator_responses
 
-    - name: Extract cluster creation response
-      when: __influxdb1x_platform_cluster_creation_potato_response.status == 201
-      ansible.builtin.set_fact:
-        __influxdb1x_platform_creation_response: "{{ __influxdb1x_platform_cluster_creation_orchestrator_response.json }}"
-
-    - name: Show Potato cluster creation response
+    - name: Create | DEBUG | Show cluster creation responses
       ansible.builtin.debug:
-        var: __influxdb1x_platform_creation_response
+        var: __influxdb1x_platform_cluster_creation_orchestrator_responses
         verbosity: 1
 
-    - name: Validate cluster creation response
-      ansible.builtin.assert:
-        that:
-          - __influxdb1x_platform_creation_response is defined
-          - __influxdb1x_platform_creation_response is mapping
-          - __influxdb1x_platform_creation_response.id is string and __influxdb1x_platform_creation_response.id | length > 0
-          - __influxdb1x_platform_creation_response.machines_status is string
-        fail_msg: "Cluster creation failed with response: {{ __influxdb1x_platform_cluster_creation_potato_response }}"
-        success_msg: "Cluster creation request successful"
+    - name: Create | Extract cluster creation responses
+      loop: "{{ __influxdb1x_platform_cluster_creation_orchestrator_responses.results }}"
+      loop_control:
+        loop_var: __influxdb1x_platform_cluster_creation_orchestrator_response
+        label: "{{ __influxdb1x_platform_cluster_creation_orchestrator_response.__influxdb1x_platform.name }}"
+      when: __influxdb1x_platform_cluster_creation_orchestrator.status == 201
+      ansible.builtin.set_fact:
+        __influxdb1x_platform_creation_responses: "{{ __influxdb1x_platform_creation_responses | default([]) +
+          [__influxdb1x_platform_cluster_creation_orchestrator_response.json | combine({
+            'molecule_platform_name': __influxdb1x_platform_cluster_creation_orchestrator_response.__influxdb1x_platform.name, recursive=True
+          })] }}"
 
-    - name: Wait for cluster creation to complete
-      when: not __influxdb1x_platform_cfg.ignore_potato_machines_status
-      ansible.builtin.uri:
-        url: "{{ influxdb1x_platform_url }}/clusters/{{ __influxdb1x_platform_creation_response.id }}"
-        method: GET
-        user: "{{ influxdb1x_platform_api_creds.username }}"
-        password: "{{ influxdb1x_platform_api_creds.password }}"
-        return_content: true
-      register: __influxdb1x_platform_cluster_creation_status
-      until: __influxdb1x_platform_cluster_creation_status.json.machines_status == 'running'
-      retries: "{{ (__influxdb1x_platform_cfg.creation_timeout | int / 10) | int }}"
-      delay: 10
+    - name: Create | Show cluster creation response
+      ansible.builtin.debug:
+        var: __influxdb1x_platform_creation_responses
+        verbosity: 1
 
-    - name: Wait for cluster creation timeout (ignore orchestrator reported status)
-      when: __influxdb1x_platform_cfg.ignore_potato_machines_status
-      ansible.builtin.pause:
-        seconds: "{{ __influxdb1x_platform_cfg.creation_timeout }}"
+    - name: New cluster is created
+      when:
+        - __influxdb1x_platform_creation_responses.skipped | default(false) is false
+        - __influxdb1x_platform_creation_responses | length > 0
+      block:
+        - name: Create | Validate cluster creation response
+          loop: "{{ __influxdb1x_platform_cluster_creation_orchestrator_responses.results }}"
+          loop_control:
+            loop_var: __influxdb1x_platform_creation_response
+            label: "{{ __influxdb1x_platform_creation_response.__influxdb1x_platform.name }}"
+          ansible.builtin.assert:
+            that:
+              - __influxdb1x_platform_creation_response is mapping
+              - __influxdb1x_platform_creation_response.id is string and __influxdb1x_platform_creation_response.id | length > 0
+              - __influxdb1x_platform_creation_response.machines_status is string
+            fail_msg: "Cluster creation failed with response: {{ __influxdb1x_platform_cluster_creation_potato_response }}"
+            success_msg: "Cluster creation request successful"
 
-    - name: Locate cluster EC2 instances
-      amazon.aws.ec2_instance_info:
-        profile: "{{ __influxdb1x_platform_cfg.aws_profile | default(omit) }}"
-        region: "{{ __influxdb1x_platform_cfg.region }}"
-        filters:
-          "tag:ClusterID": "{{ __influxdb1x_platform_creation_response.id }}"
-          instance-state-name: ["running"]
-      register: __influxdb1x_platform_new_ec2_instances
+        - name: Create | Write run config to file
+          vars:
+            __influxdb1x_platform_config_content:
+              platforms: >-
+                {% for __influxdb1x_new_cluster in __influxdb1x_platform_creation_responses %}
+                  - name: "{{ __influxdb1x_new_cluster.name }}"
+                    cluster_id: "{{ __influxdb1x_new_cluster.id }}"
+                {% endfor %}
+          ansible.builtin.include_tasks: "{{ role_path }}/tasks/write_config.yml"
 
-    # Orchestrator can fail to create all instances due to unsupported instance types in the (randomly-selected) availability zone
-    - name: Validate cluster member count
-      ansible.builtin.assert:
-        that:
-          - __influxdb1x_platform_new_ec2_instances.instances | length >= (__influxdb1x_platform_creation_response.data_node_count | int + __influxdb1x_platform_creation_response.meta_node_count | int)
-        fail_msg: "Cluster creation failed to create all instances! Check cluster orchestrator logs for more information."
-        success_msg: "Expected number of EC2 instances discovered."
+- name: Create | Wait for cluster creation to complete
+  loop: "{{ __influxdb1x_platforms | selectattr('ignore_machines_status', 'eq', false) }}"
+  loop_control:
+    loop_var: __influxdb1x_platform
+    label: "{{ __influxdb1x_platform.name }}"
+  ansible.builtin.uri:
+    url: "{{ __influxdb1x_orchestrator_api_url }}/clusters/{{ __influxdb1x_platform.cluster_id }}"
+    method: GET
+    user: "{{ __influxdb1x_platform.orchestrator_username }}"
+    password: "{{ __influxdb1x_platform.orchestrator_password }}"
+    return_content: true
+  register: __influxdb1x_platform_cluster_creation_status
+  until: __influxdb1x_platform_cluster_creation_status.json.machines_status == __influxdb1x_platform.desired_machines_status
+  retries: "{{ (__influxdb1x_platform.creation_timeout | int / 10) | int }}"
+  delay: 10
+  async: "{{ __influxdb1x_platform.creation_timeout | int + 10 }}"
+
+- name: Create | Wait for cluster creation timeout (ignore orchestrator reported status)
+  loop: "{{ __influxdb1x_platforms | selectattr('ignore_machines_status', 'eq', true) }}"
+  loop_control:
+    loop_var: __influxdb1x_platform
+    label: "{{ __influxdb1x_platform.name }}"
+  ansible.builtin.wait_for:
+    timeout: "{{ __influxdb1x_platform.creation_timeout }}"
+  async: "{{ __influxdb1x_platform.creation_timeout | int + 10 }}"
+
+- name: STOP HERE
+  ansible.builtin.fail:
+    msg: "STOP HERE"
+
+- name: Create | Locate cluster EC2 instances
+  amazon.aws.ec2_instance_info:
+    profile: "{{ __influxdb1x_platform_cfg.aws_profile | default(omit) }}"
+    region: "{{ __influxdb1x_platform_cfg.region }}"
+    filters:
+      "tag:ClusterID": "{{ __influxdb1x_platform_creation_response.id }}"
+      instance-state-name: ["running"]
+  register: __influxdb1x_platform_new_ec2_instances
+
+# Orchestrator can fail to create all instances due to unsupported instance types in the (randomly-selected) availability zone
+- name: Create | Validate cluster member count
+  ansible.builtin.assert:
+    that:
+      - __influxdb1x_platform_new_ec2_instances.instances | length >= (__influxdb1x_platform_creation_response.data_node_count | int + __influxdb1x_platform_creation_response.meta_node_count | int)
+    fail_msg: "Cluster creation failed to create all instances! Check cluster orchestrator logs for more information."
+    success_msg: "Expected number of EC2 instances discovered."
 
 - name: Show existing instances
   ansible.builtin.debug:

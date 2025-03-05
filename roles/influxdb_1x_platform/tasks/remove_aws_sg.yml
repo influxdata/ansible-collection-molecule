@@ -1,0 +1,11 @@
+---
+# Remove AWS security group managed by this role
+
+- name: Destroy ephemeral security groups (if needed)
+  amazon.aws.ec2_security_group:
+    profile: "{{ __influxdb1x_platform_cfg.aws_profile | default(omit) }}"
+    region: "{{ __influxdb1x_platform_cfg.region | default(omit) }}"
+    vpc_id: "{{ __influxdb1x_platform_cfg.vpc_id or __influxdb1x_platform_cfg.subnets[0] }}"
+    name: "{{ __influxdb1x_platform_cfg.security_group_name }}"
+    state: absent
+  when: __influxdb1x_platform_cfg.security_groups | length == 0

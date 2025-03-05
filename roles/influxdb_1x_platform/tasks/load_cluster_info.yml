@@ -3,8 +3,11 @@
 
 - name: An existing cluster is defined
   vars:
-    __influxdb1x_platform_existing_clusters: "{{ __influxdb1x_platforms | selectattr('cluster_id', 'defined') | selectattr('cluster_id', 'truthy') | list }}"
-  when: __influxdb1x_platform_existing_clusters | length > 0
+    __influxdb1x_platform_existing_clusters: >-
+      {{
+        __influxdb1x_platforms | selectattr('cluster_id', 'defined')
+        | selectattr('cluster_id', 'truthy') | list
+      }}
   block:
     - name: DEBUG | Show existing cluster information
       ansible.builtin.debug:
@@ -12,15 +15,12 @@
         verbosity: 1
 
     - name: Check State | Load cluster configuration from orchestrator
-      loop: "{{ __influxdb1x_platforms }}"
+      loop: "{{ __influxdb1x_platform_existing_clusters }}"
       loop_control:
         loop_var: __influxdb1x_platform
         label: "{{ __influxdb1x_platform.name }}"
-      vars:
-        __influxdb1x_orchestrator_url: >-
-          {{ __influxdb1x_platform.orchestrator_address }}{{ __influxdb1x_platform.orchestrator_api_path }}/clusters/{{ __influxdb1x_platform.cluster_id }}
       ansible.builtin.uri:
-        url: "{{ __influxdb1x_orchestrator_url }}"
+        url: "{{ __influxdb1x_orchestrator_api_url }}/clusters/{{ __influxdb1x_platform.cluster_id }}"
         method: GET
         return_content: true
         body_format: json
@@ -38,8 +38,11 @@
         label: "{{ __influxdb1x_platform_cluster_info_record.__influxdb1x_platform.name }}"
       ansible.builtin.assert:
         that:
-          - __influxdb1x_platform_cluster_info_record.message == "Cluster ID not found"
-        fail_msg: Unhandled error loading cluster configuration! {{ __influxdb1x_platform_cluster_info_record }}
+          - __influxdb1x_platform_cluster_info_record.json.message == "Cluster ID not found"
+        fail_msg: >
+          Unhandled error loading cluster configuration!
+          {{ __influxdb1x_platform_cluster_info_record.json.message
+          | default(__influxdb1x_platform_cluster_info_record.msg) }}
         success_msg: Cluster ID is not found
 
     - name: Check State | Store cluster ID mapping

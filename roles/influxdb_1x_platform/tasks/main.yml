@@ -28,17 +28,13 @@
     - name: Load InfluxDB cluster information
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/load_cluster_info.yml"
 
-    - name: STOP HERE
-      ansible.builtin.fail:
-        msg: "STOP HERE"
-
-    - name: Platform is deployed
-      ansible.builtin.include_tasks: "{{ role_path }}/tasks/create_cluster.yml"
+    - name: Provision Platform
       when: influxdb1x_platform_state == 'present'
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/provision.yml"
 
     - name: Platform is not deployed
-      ansible.builtin.include_tasks: "{{ role_path }}/tasks/remove_cluster.yml"
       when: influxdb1x_platform_state == 'absent'
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/deprovision.yml"
 
     - name: Export platform configuration
       ansible.builtin.set_fact:
