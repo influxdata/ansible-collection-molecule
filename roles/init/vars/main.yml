@@ -20,7 +20,7 @@ __init_supported_platform_types:
 __init_runtime_platforms: >-
    {%- set __init_platforms = [] -%}
    {%- for __init_platform in init_platforms -%}
-      {%- set _ = __init_platforms.append(__init_platform | combine(init_platform_defaults)) -%}
+      {%- set _ = __init_platforms.append(init_platform_defaults | combine(__init_platform, recursive=True)) -%}
    {%- endfor -%}
    {%- if __init_platforms | length == 0 -%}
       {%- set __init_platforms = [init_platform_defaults] -%}

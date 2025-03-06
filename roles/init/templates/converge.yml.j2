@@ -16,7 +16,9 @@
         that: "'molecule' in groups"
         fail_msg: |
           molecule group was not found inside inventory groups: {{ groups }}
+{% endraw %}
 
+{% if init_project_type in ['role', 'collection', 'monolith'] %}
 - name: Converge
   hosts: molecule
   vars:
@@ -31,96 +33,46 @@
       ansible.builtin.assert:
         that: result.stdout | regex_search("^Linux")
 
-    - name: Do preparation
-      block:
-        - name: Load local host facts
-          ansible.builtin.setup:
-            gather_subset:
-              - '!all'
-              - '!min'
-              - local
-
-        - name: Show local Ansible facts
-          ansible.builtin.debug:
-            var: ansible_facts.ansible_local
-            verbosity: 1
-
-        - name: Test local fact exists
-          ansible.builtin.assert:
-            that:
-              - ansible_local.molecule.test_prepare_fact is defined
-            fail_msg: Something went wrong with storing local facts!
-            success_msg: Local fact exists
-
-    - name: Run the init role
+{% if init_project_type == 'role' %}
+    - name: Test role your_role_here
       vars:
-        test_dir: /tmp/molecule-init
-        test_init_wget_path: "https://raw.githubusercontent.com/influxdata/ansible-collection-molecule/main/roles/init/files/init.yml"
-        test_collection_dir: "{{ test_dir }}/ci_testing/test_collection"
-        test_role_dir: "{{ test_dir }}/ci_testing/test_collection"
-      block:
-        - name: Local work dir exists
-          ansible.builtin.file:
-            path: "{{ test_dir }}"
-            state: directory
+        ansible_user: molecule_runner
+      ansible.builtin.include_role:
+        name: your_role_here
+{% elif init_project_type == 'collection' %}
+    # Add tasks to test collection elements here
+    #  For example, to test a role in a collection:
+    - name: Test your_collection.role_here
+      vars:
+        ansible_user: molecule_runner
+      ansible.builtin.include_role:
+        name: your_collection.role_here
+{% elif init_project_type == 'monolith' %}
+    # Top level monolithic repository tests here!
+    # Tests of individual roles and playbooks should be done in their respective directories.
+    # Monolithic repository level test scopes should target processes that span multiple roles or playbooks.
+    - name: Test monolithic repository
+      ansible.builtin.debug:
+        msg: "Add your monolithic repository tests here!"
 
-        - name: Test with a collection
-          block:
-            - name: Test collection is created
-              ansible.builtin.command:
-                chdir: "{{ test_dir }}"
-                cmd: ansible-galaxy collection init ci_testing.test_collection
-                creates: "{{ test_collection_dir }}"
+    - name: Test role your_role_here
+      vars:
+        ansible_user: molecule_runner
+      ansible.builtin.include_role:
+        name: your_role_here
 
-            - name: Molecule scenario dir exists for collection
-              ansible.builtin.file:
-                path: "{{ test_collection_dir }}/molecule/default"
-                state: directory
-
-            - name: Molecule init playbook exists for collection
-              ansible.builtin.command:
-                chdir: "{{ test_collection_dir }}"
-                cmd: wget -P molecule/default {{ test_init_wget_path }}
-                creates: "{{ test_collection_dir }}/molecule/default/init.yml"
-
-            - name: Run init playbook on collection
-              # TODO: Actually check idempotence on this
-              ansible.builtin.command:
-                chdir: "{{ test_collection_dir }}"
-                cmd: ansible-playbook molecule/default/init.yml
-              changed_when: false
-
-        - name: Test with a role
-          block:
-            - name: Test role is created
-              ansible.builtin.command:
-                chdir: "{{ test_dir }}"
-                cmd: ansible-galaxy role init test_role
-                creates: "{{ test_role_dir }}"
-
-            - name: Molecule scenario dir exists for role
-              ansible.builtin.file:
-                path: "{{ test_role_dir }}/molecule/default"
-                state: directory
-
-            - name: Molecule init playbook exists for role
-              ansible.builtin.command:
-                chdir: "{{ test_role_dir }}"
-                cmd: wget -P molecule/default {{ test_init_wget_path }}
-                creates: "{{ test_role_dir }}/molecule/default/init.yml"
-
-            - name: Run init playbook on role
-              # TODO: Actually check idempotence on this
-              ansible.builtin.command:
-                chdir: "{{ test_role_dir }}"
-                cmd: ansible-playbook molecule/default/init.yml
-              changed_when: false
-
-        - name: Test with a monolith
-          block:
-            # TODO: Find/create a public monolith repo we can use to test this
-            - name: "TODO: Write monolith test"
-              ansible.builtin.debug:
-                msg: This test hasn't been written! You get a cookie if you can fix that! 🍪
-
+{% endif %}
+{% endif %}
+{% if init_project_type in ['playbook','monolith'] %}
+{%- raw -%}
+- name: Include playbook your_playbook_here
+  vars:
+    # Note: Your playbook must include this variable in its 'hosts' directive
+    #  IE: hosts: "{{ playbook_target_hosts | default('all') }}"
+    #
+    # WARNING: Take care not to run against 'localhost' as this is the runner, and not the target!
+    playbook_target_hosts: molecule
+  ansible.builtin.import_playbook: "{{ playbook_dir }}../../your_playbook_here.yml"
 {% endraw %}
+
+{% endif %}

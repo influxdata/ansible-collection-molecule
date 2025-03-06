@@ -7,19 +7,30 @@ driver:
   options:
     managed: true
 {% if 'docker' in init_platforms | map(attribute='type') %}
+{% if init_platforms | map(attribute='type') | list | unique | count > 1 %}
+    # WARNING! Multiple platform types are defined! This is not supported!
+    #   - 'molecule login' will only work for docker containers
+    #   - random, unexpected behavior may occur
+    #   - the sky may fall
+{% endif %}
     login_cmd_template: 'docker exec -ti {instance} bash --login'
 {% endif %}
 platforms:
   # See platform documentation at {{ __init_collection_repository }}/tree/main/roles/{{ init_platform_type }}_platform/README.md
 {% for init_platform in __init_runtime_platforms %}
-  - name: {{ init_platform.name | default('docker-platform') }}
+  - name: {{ init_platform.name }}
     type: {{ init_platform.type }}
-{% for key, value in init_platform.items() -%}
+{% for key, value in init_platform.items() %}
 {% if key not in ['name', 'type', 'hostvars'] %}
     {{ key }}: {{ value }}
 {% endif %}
-{%- endfor %}
-    hostvars: {{ init_platform.hostvars | default({}) }}
+{% endfor -%}
+{%- if init_platform.hostvars is defined and init_platform.hostvars is truthy %}
+    hostvars:
+      {{ init_platform.hostvars | to_nice_yaml }}
+{%- else %}
+    hostvars: {}
+{% endif %}
 {% endfor %}
 provisioner:
   name: ansible

@@ -17,18 +17,16 @@ mkdir -p molecule/default
 
 ## Create the init playbook
 
-Within the new scenario directory (default), create a file `init.yml` containing the example playbook from this README.
+Within the new scenario directory (default), create a file `init.yml` containing the init playbook located at [files/init.yml](files/init.yml).
 
 Alternatively, you can run:
 ```bash
 wget -P molecule/default https://raw.githubusercontent.com/influxdata/ansible-collection-molecule/main/roles/init/files/init.yml
 ```
 
-Configuration variables for the `init` role launched by this playbook can be customized as desired.
-
 You should now have a directory structure similar to the following:
 ```
-ansible-role-users
+my_cool_role
 ├── defaults
 ├── molecule
 │   └── default
@@ -42,6 +40,11 @@ ansible-role-users
 └── vars
 ```
 
+
+## Edit the init playbook
+
+Edit the configuration variables as desired for your deployment.
+
 ## Run the init playbook
 
 ```bash
@@ -50,23 +53,35 @@ ansible-playbook molecule/default/init.yml
 
 You should now see that additional configuration has been added to the `default` scenario directory:  
 ```
-ansible-role-users
+my_cool_role
 ├── defaults
 ├── molecule
-│   └── default
+│   ├── resources
+│   │   ├── cleanup.yml
+│   │   ├── collections.yml
+│   │   ├── converge.yml
+│   │   ├── create.yml
+│   │   ├── destroy.yml
+│   │   ├── prepare.yml
+│   │   ├── requirements.yml
+│   │   ├── side_effect.yml
+│   │   └── verify.yml
+│   └── role-disks-docker
 │       ├── collections.yml
-│       ├── converge.yml
-│       ├── create.yml
-│       ├── destroy.yml
 │       ├── init.yml
 │       ├── molecule.yml
-│       ├── prepare.yml
-│       ├── requirements.yml
-│       └── verify.yml
+│       └── requirements.yml
 ├── handlers
 ├── LICENSE
 [...]
 ```
+
+## Update configuration
+
+The 'platform' configuration for the Molecule scenario can be updated in the `molecule/default/molecule.yml` file as needed.
+
+The 'converge' playbook can be updated in the `molecule/resources/converge.yml` file as needed.
+
 
 ## Run Molecule to verify initial setup
 
@@ -106,9 +121,8 @@ For example:
 init_platforms:
   - name: docker-rocklinux9
     type: docker
-    config:
-      image: "geerlingguy/docker-rockylinux9-ansible:latest"
-      systemd: true
+    image: "geerlingguy/docker-rockylinux9-ansible:latest"
+    systemd: true
 ```
 
 The name of each platform should be unique, and other Systemd-enabled OS containers can be found [here](https://hub.docker.com/search?q=geerlingguy%2Fdocker-).
@@ -121,7 +135,7 @@ Role Variables
 --------------
 
 ```yaml
-# The type of project that this Molecule configuration will be integrated into
+# The type of project that this Molecule configuration will be integrated into (role, collection, playbook, monolith)
 init_project_type: auto
 
 # The type of platform that this Molecule configuration will be testing on (docker, ec2)
@@ -129,32 +143,38 @@ init_project_type: auto
 init_platform_type: docker
 
 # Version of this collection that should be used by the Molecule test
-# - Set to "" to attempt to use the running version
-init_collection_version: ""
+# - Set to "current" to attempt to use the running version
+init_collection_version: latest
 
 # Source of the collection that this role is part of (galaxy, git)
 init_collection_source: git
 
-# Filesystem location of the molecule scenario being initialized
-init_scenario_dir: "{{ molecule_scenario_directory | default(playbook_dir) }}"
+# Path to the ansible secret file that should be used by the Molecule test
+#  - Variable substitution can be used as described here: https://ansible.readthedocs.io/projects/molecule/configuration/#variable-substitution
+#  - Set to "" to disable
+init_ansible_secret_path: "{{ lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | default('') }}"
 
-# The filesystem location of the project being tested by this Molecule configuration
-#  - default value assumes that your Molecule project is located at <project dir>/molecule/<scenario>
-init_project_dir: "{{ init_scenario_dir.split('/')[:-2] | join('/') }}"
-
-# Platforms that this test configuration should test
+# Platforms that this test configuration should run on
 #  list of dicts, each required to contain:
 #    name: (string)
 #    type: (string)
-#    config: (dictionary, configuration for specified "type")
+#    <platform-specific configuration>
 #
 #  for example, in the case of the "docker" type:
-#    config:
+#    - name: docker-platform-with-a-descriptive-name
+#      type: docker
 #      image: (string, container image path)
-#      systemd: (true/false)
-#      modify_image: (true/false)
-#      modify_image_buildpath: (string)     # path to directory containing Dockerfile
-#      privileged: (true/false)
+#      systemd: (true/false)                # enable systemd in the container
+#      privileged: (true/false)             # run the container in privileged mode
+#      cpus: (int)                          # number of CPUs to allocate to the container
+#      memory: (int)K/M/G                   # amount of memory to allocate to the container
+#      published_ports: (list)              # list of ports to publish from the container
+#      exec_systemd: (true/false)           # customize the container entrypoint to run systemd
+#      exec_systemd_build_commands: (list)  # commands to run when building the systemd-enabled container
+#      hostvars: (dict)                     # hostvars to be added to the Ansible inventory
+#
+#   See README.md in the 'roles/docker_platform' directory for more information
+#    - Similarly, other platform types will have their own README.md files
 #
 # If not specified, the role will attempt to use the default platform configuration
 init_platforms: []
@@ -162,17 +182,17 @@ init_platforms: []
 # Create backups of any files that would be clobbered by running this role
 init_file_backup: true
 
-# Path to the ansible secret file that should be used by the Molecule test
-#  - Variable substitution can be used as described here: https://ansible.readthedocs.io/projects/molecule/configuration/#variable-substitution
-#  - Set to "" to disable
-init_ansible_secret_path: ""
+# Overwrite any existing 'resource' playbook files in the 'molecule/resources' directory
+init_overwrite_resources: false
+
+# Initialize ARA support in the Molecule configuration -- https://ara.recordsansible.org/
+init_ara_support: true
 ```
 
 Dependencies
 ------------
 
 **Collections**  
-* community.docker
 * influxdata.molecule
 
 Example Playbook
@@ -193,10 +213,9 @@ Example Playbook
         init_platforms:
           - name: docker-amazonlinux2023
             type: docker
-            config:
-              image: geerlingguy/docker-amazonlinux2023-ansible:latest
-              systemd: true
-              privileged: false
+            image: geerlingguy/docker-amazonlinux2023-ansible:latest
+            systemd: true
+            privileged: false
 ```
 
 License
