@@ -1,6 +1,6 @@
 # Ansible Collection - influxdata.molecule
 
-[![Molecule Test](https://github.com/influxdata/ansible-collection-molecule/actions/workflows/main.yml/badge.svg)](https://github.com/influxdata/ansible-collection-molecule/actions/workflows/main.yml)
+[![Molecule Build](https://github.com/influxdata/ansible-collection-molecule/actions/workflows/build.yml/badge.svg)](https://github.com/influxdata/ansible-collection-molecule/actions/workflows/build.yml)
 
 This collection facilitates the creation and use of test environments using the Ansible [Molecule project](https://ansible.readthedocs.io/projects/molecule/).
 
