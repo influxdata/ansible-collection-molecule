@@ -12,7 +12,19 @@ jobs:
     if: |
       github.event.release.prerelase == false
     steps:
-      - uses: actions/checkout@v4
+      - name: Check deployment configuration
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.GALAXY_API_KEY }}" ]; then
+            echo "No Galaxy API key found. Skipping deployment."
+            echo "GALAXY_DEPLOYMENT_ENABLED=1" >> $GITHUB_ENV
+          else
+            echo "Galaxy API key found. Deploying collection."
+            echo "GALAXY_DEPLOYMENT_ENABLED=0" >> $GITHUB_ENV
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Tag latest release
         uses: EndBug/latest-tag@latest
@@ -24,7 +36,7 @@ jobs:
 
       - name: Build and Deploy Collection
         uses: artis3n/ansible_galaxy_collection@v2
-        if: ${{ secrets.GALAXY_API_KEY != '' }}
+        if: ${{ env.GALAXY_DEPLOYMENT_ENABLED == '0' }}
         with:
           api_key: '${{ secrets.GALAXY_API_KEY }}'
 
