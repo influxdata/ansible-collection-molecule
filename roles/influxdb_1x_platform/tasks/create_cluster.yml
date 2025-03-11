@@ -113,18 +113,9 @@
     timeout: "{{ __influxdb1x_platform.creation_timeout }}"
   async: "{{ __influxdb1x_platform.creation_timeout | int + 10 }}"
 
-- name: STOP HERE
-  ansible.builtin.fail:
-    msg: "STOP HERE"
 
-- name: Create | Locate cluster EC2 instances
-  amazon.aws.ec2_instance_info:
-    profile: "{{ __influxdb1x_platform_cfg.aws_profile | default(omit) }}"
-    region: "{{ __influxdb1x_platform_cfg.region }}"
-    filters:
-      "tag:ClusterID": "{{ __influxdb1x_platform_creation_response.id }}"
-      instance-state-name: ["running"]
-  register: __influxdb1x_platform_new_ec2_instances
+- name: Create | Collect cluster instance EC2 data
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/collect_ec2_data.yml"
 
 # Orchestrator can fail to create all instances due to unsupported instance types in the (randomly-selected) availability zone
 - name: Create | Validate cluster member count

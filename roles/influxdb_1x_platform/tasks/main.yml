@@ -41,8 +41,9 @@
         platform_exported_config: >-
           {%- set __platform_instances = {} -%}
           {%- for __platform in __platform_config -%}
-            {%- if ec2_platform_instance_configs is defined -%}
-              {%- set __platform_instance_config = ec2_platform_instance_configs | selectattr('instance', 'equalto', __platform.name) | first -%}
+            {%- if influxdb1x_platform_instance_configs is defined -%}
+            {%- set __platform_instance_config = influxdb1x_platform_instance_configs
+              | selectattr('instance', 'equalto', __platform.name) | first -%}
               {%- set __platform_hostvars_merged = {
                   'ansible_host': __platform_instance_config.address,
                   'ansible_port': __platform_instance_config.port,
