@@ -13,6 +13,7 @@
     loop_var: __influxdb1x_platform_cfg
     label: "{{ __influxdb1x_platform_cfg.name }}"
   amazon.aws.ec2_vpc_subnet_info:
+    profile: "{{ __influxdb1x_platform_cfg.aws_profile | default(omit) }}"
     subnet_ids: "{{ __influxdb1x_platform_cfg.vpc_subnet_id }}"
   register: __influxdb1x_platform_subnet_info
 

@@ -45,16 +45,19 @@
           | default(__influxdb1x_platform_cluster_info_record.msg) }}
         success_msg: Cluster ID is not found
 
-    - name: Check State | Store cluster ID mapping
-      loop: "{{ __influxdb1x_platform_cluster_info_queries.results | selectattr('status', 'eq', 200) | list }}"
-      loop_control:
-        loop_var: __influxdb1x_platform_cluster_info_record
-        label: "{{ __influxdb1x_platform_cluster_info_record.__influxdb1x_platform.name }}"
+    - name: Check State | Store orchestrator cluster data
       vars:
-        __influxdb1x_cluster_record: "{{ __influxdb1x_platform_cluster_info_record.json }}"
-        __influxdb1x_platform_name: "{{ __influxdb1x_platform_cluster_info_record.__influxdb1x_platform.name }}"
-      ansible.builtin.set_fact:
-        __influxdb1x_platform_cluster_id_mapping: "{{ __influxdb1x_platform_cluster_id_mapping | combine({
-          __influxdb1x_platform_name: __influxdb1x_cluster_record.id
-          }) }}"
+        __influxdb1x_platform_config_content:
+          platforms: >-
+            {%- set __influxdb1x_platform_output = [] -%}
+            {%- for __influxdb1x_platform_cluster_info_query in __influxdb1x_platform_cluster_info_queries.results
+              | selectattr('status', 'eq', 200) -%}
+              {%- set _ = __influxdb1x_platform_output.append({
+                'name': __influxdb1x_platform_cluster_info_query.__influxdb1x_platform.name,
+                'cluster_id': __influxdb1x_platform_cluster_info_query.json.id,
+                'orchestrator_data': __influxdb1x_platform_cluster_info_query.json
+              }) -%}
+            {%- endfor -%}
+            {{ __influxdb1x_platform_output }}
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/write_config.yml"
 

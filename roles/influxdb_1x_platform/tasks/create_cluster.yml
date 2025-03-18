@@ -42,23 +42,6 @@
         var: __influxdb1x_platform_cluster_creation_orchestrator_responses
         verbosity: 1
 
-    - name: Create | Extract cluster creation responses
-      loop: "{{ __influxdb1x_platform_cluster_creation_orchestrator_responses.results }}"
-      loop_control:
-        loop_var: __influxdb1x_platform_cluster_creation_orchestrator_response
-        label: "{{ __influxdb1x_platform_cluster_creation_orchestrator_response.__influxdb1x_platform.name }}"
-      when: __influxdb1x_platform_cluster_creation_orchestrator.status == 201
-      ansible.builtin.set_fact:
-        __influxdb1x_platform_creation_responses: "{{ __influxdb1x_platform_creation_responses | default([]) +
-          [__influxdb1x_platform_cluster_creation_orchestrator_response.json | combine({
-            'molecule_platform_name': __influxdb1x_platform_cluster_creation_orchestrator_response.__influxdb1x_platform.name, recursive=True
-          })] }}"
-
-    - name: Create | Show cluster creation response
-      ansible.builtin.debug:
-        var: __influxdb1x_platform_creation_responses
-        verbosity: 1
-
     - name: New cluster is created
       when:
         - __influxdb1x_platform_creation_responses.skipped | default(false) is false
@@ -77,14 +60,20 @@
             fail_msg: "Cluster creation failed with response: {{ __influxdb1x_platform_cluster_creation_potato_response }}"
             success_msg: "Cluster creation request successful"
 
-        - name: Create | Write run config to file
+        - name: Create | Store orchestrator cluster data
           vars:
             __influxdb1x_platform_config_content:
               platforms: >-
-                {% for __influxdb1x_new_cluster in __influxdb1x_platform_creation_responses %}
-                  - name: "{{ __influxdb1x_new_cluster.name }}"
-                    cluster_id: "{{ __influxdb1x_new_cluster.id }}"
-                {% endfor %}
+                {%- set __influxdb1x_platform_output = [] -%}
+                {%- for __influxdb1x_platform_cluster_creation_orchestrator_response in __influxdb1x_platform_cluster_creation_orchestrator_responses.results
+                  | selectattr('status', 'eq', 201) -%}
+                  {%- set _ = __influxdb1x_platform_output.append({
+                    'name': __influxdb1x_platform_cluster_creation_orchestrator_response.__influxdb1x_platform.name,
+                    'cluster_id': __influxdb1x_platform_cluster_creation_orchestrator_response.json.id,
+                    'orchestrator_data': __influxdb1x_platform_cluster_creation_orchestrator_response.json
+                  }) -%}
+                {%- endfor -%}
+                {{ __influxdb1x_platform_output }}
           ansible.builtin.include_tasks: "{{ role_path }}/tasks/write_config.yml"
 
 - name: Create | Wait for cluster creation to complete
@@ -117,72 +106,80 @@
 - name: Create | Collect cluster instance EC2 data
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/collect_ec2_data.yml"
 
-# Orchestrator can fail to create all instances due to unsupported instance types in the (randomly-selected) availability zone
+# Orchestrator can fail to create all instances due to unsupported instance types in the (internally-selected) availability zone
 - name: Create | Validate cluster member count
+  loop: "{{ __influxdb1x_platforms | selectattr('ignore_machines_status', 'eq', true) }}"
+  loop_control:
+    loop_var: __influxdb1x_platform
+    label: "{{ __influxdb1x_platform.name }}"
+  vars:
+    __influxdb1x_platform_hosts: "{{ __influxdb1x_platform_instance_configs | selectattr('instance', 'equalto', __influxdb1x_platform.name) | list }}"
+    __influxdb1x_platform_min_node_count: "{{ __influxdb1x_platform.cluster_config.data_node_count | int + __influxdb1x_platform.cluster_config.meta_node_count | int }}"
   ansible.builtin.assert:
     that:
-      - __influxdb1x_platform_new_ec2_instances.instances | length >= (__influxdb1x_platform_creation_response.data_node_count | int + __influxdb1x_platform_creation_response.meta_node_count | int)
-    fail_msg: "Cluster creation failed to create all instances! Check cluster orchestrator logs for more information."
-    success_msg: "Expected number of EC2 instances discovered."
+      - __influxdb1x_platform_hosts | length >= __influxdb1x_platform_min_node_count | int
+    fail_msg: >
+      Cluster creation failed to create all instances!
+      Found {{ __influxdb1x_platform_hosts | length }} of {{ __influxdb1x_platform_min_node_count }} expected.
+      Check cluster orchestrator logs for more information.
+    success_msg: "Expected number of EC2 instances ({{ __influxdb1x_platform_hosts | length }}) discovered."
 
-- name: Show existing instances
-  ansible.builtin.debug:
-    var: __influxdb1x_platform_existing_ec2_instances
-    verbosity: 1
+- name: Create | Controller | SSH private key exists
+  loop: "{{ __influxdb1x_platforms }}"
+  loop_control:
+    loop_var: __influxdb1x_platform
+    label: "{{ __influxdb1x_platform.name }}"
+  ansible.builtin.copy:
+    src: "{{ __influxdb1x_platform.private_key_source_path }}"
+    dest: "{{ __influxdb1x_platform.private_key_runtime_path }}"
+    mode: "0600"
 
 - name: STOP HERE
   ansible.builtin.fail:
     msg: "STOP HERE"
 
-- name: Modify EC2 instances
+- name: Modify EC2 (Requires RW access to the AWS API)
   vars:
-    __influxdb1x_platform_ec2_instances: "{{ __influxdb1x_platform_existing_ec2_instances if __influxdb1x_platform_new_ec2_instances.skipped |
-      default(false) else __influxdb1x_platform_new_ec2_instances }}"
+    __influxdb1x_target_platforms: "{{ __influxdb1x_platforms | selectattr('enable_awx_config', 'eq', true) | list }}"
   block:
-    - name: Show target ec2 instances
-      ansible.builtin.debug:
-        var: __influxdb1x_platform_ec2_instances
-        verbosity: 2
+    - name: Create | AWS | Build ephemeral security groups
+      vars:
+        __influxdb1x_platforms: "{{ __influxdb1x_target_platforms | selectattr('security_group_type', 'eq', 'ephemeral') | list }}"
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/create_aws_sg.yml"
 
-    - name: Collect instance configs
-      ansible.builtin.include_tasks: "{{ role_path }}/tasks/collect_ec2_data.yml"
-      loop: "{{ __influxdb1x_platform_ec2_instances.instances }}"
+    - name: Create | AWS | Attach security groups to instances
+      loop: "{{ __influxdb1x_target_platforms }}"
       loop_control:
-        loop_var: __influxdb1x_platform_instance
-        label: "{{ __influxdb1x_platform_instance.instance_id }}"
+        loop_var: __influxdb1x_platform
+        label: "{{ __influxdb1x_platform.name }}"
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/attach_aws_sg.yml"
 
-    - name: SSH private key exists in Molecule config
-      ansible.builtin.copy:
-        src: "{{ __influxdb1x_platform_cfg.private_key_source_path }}"
-        dest: "{{ __influxdb1x_platform_cfg.private_key_path }}"
-        mode: "0600"
+- name: Check SSH connectivity
+  ansible.builtin.wait_for:
+    host: "{{ __influxdb1x_platform_instance.public_ip_address }}"
+    port: "{{ __influxdb1x_platform_cfg.ssh_port }}"
+    search_regex: SSH
+    delay: 10
+    timeout: 320
+  async: 350
+  poll: 0
+  register: __influxdb1x_platform_ssh_connectivity_check
+  loop: "{{ __influxdb1x_platform_ec2_instances.instances }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_instance
+    label: "{{ __influxdb1x_platform_instance.instance_id }}"
 
-    - name: Check SSH connectivity
-      ansible.builtin.wait_for:
-        host: "{{ __influxdb1x_platform_instance.public_ip_address }}"
-        port: "{{ __influxdb1x_platform_cfg.ssh_port }}"
-        search_regex: SSH
-        delay: 10
-        timeout: 320
-      async: 350
-      poll: 0
-      register: __influxdb1x_platform_ssh_connectivity_check
-      loop: "{{ __influxdb1x_platform_ec2_instances.instances }}"
-      loop_control:
-        loop_var: __influxdb1x_platform_instance
-        label: "{{ __influxdb1x_platform_instance.instance_id }}"
+- name: Show SSH connectivity check results
+  ansible.builtin.debug:
+    var: __influxdb1x_platform_ssh_connectivity_check
+    verbosity: 1
 
-    - name: Show SSH connectivity check results
-      ansible.builtin.debug:
-        var: __influxdb1x_platform_ssh_connectivity_check
-        verbosity: 1
-
-    - name: Wait for SSH connectivity checks to finish
-      ansible.builtin.include_tasks: "{{ role_path }}/tasks/check_async_tasks.yml"
-      loop: "{{ __influxdb1x_platform_ssh_connectivity_check.results }}"
-      loop_control:
-        loop_var: __influxdb1x_platform_async_job
-        label: "{{ __influxdb1x_platform_async_job.__influxdb1x_platform_instance.instance_id }}"
+- name: Wait for SSH connectivity checks to finish
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/check_async_tasks.yml"
+  loop: "{{ __influxdb1x_platform_ssh_connectivity_check.results }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_async_job
+    label: "{{ __influxdb1x_platform_async_job.__influxdb1x_platform_instance.instance_id }}"
 
 # TODO: Add an actual check here instead of only waiting
 - name: Wait for boot process to finish
