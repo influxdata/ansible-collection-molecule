@@ -134,18 +134,21 @@
     dest: "{{ __influxdb1x_platform.private_key_runtime_path }}"
     mode: "0600"
 
-- name: STOP HERE
-  ansible.builtin.fail:
-    msg: "STOP HERE"
-
 - name: Modify EC2 (Requires RW access to the AWS API)
   vars:
-    __influxdb1x_target_platforms: "{{ __influxdb1x_platforms | selectattr('enable_awx_config', 'eq', true) | list }}"
+    __influxdb1x_target_platforms: >-
+      {{
+        __influxdb1x_platforms | selectattr('enable_aws_config', 'eq', true)
+        | selectattr('security_group_type', 'eq', 'ephemeral')
+        | list
+      }}
   block:
     - name: Create | AWS | Build ephemeral security groups
-      vars:
-        __influxdb1x_platforms: "{{ __influxdb1x_target_platforms | selectattr('security_group_type', 'eq', 'ephemeral') | list }}"
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/create_aws_sg.yml"
+
+    - name: STOP HERE
+      ansible.builtin.fail:
+        msg: "STOP HERE"
 
     - name: Create | AWS | Attach security groups to instances
       loop: "{{ __influxdb1x_target_platforms }}"

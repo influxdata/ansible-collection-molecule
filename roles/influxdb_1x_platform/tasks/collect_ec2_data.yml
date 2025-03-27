@@ -16,6 +16,9 @@
     label: "{{ __influxdb1x_platform.name }}"
   amazon.aws.ec2_instance_info:
     profile: "{{ __influxdb1x_platform.aws_profile | default(omit) }}"
+    access_key: "{{ __influxdb1x_platform.aws_access_key_id | default(omit) }}"
+    secret_key: "{{ __influxdb1x_platform.aws_secret_access_key | default(omit) }}"
+    session_token: "{{ __influxdb1x_platform.aws_session_token | default(omit) }}"
     region: "{{ __influxdb1x_platform.region }}"
     filters:
       "tag:ClusterID": "{{ __influxdb1x_platform.cluster_id }}"

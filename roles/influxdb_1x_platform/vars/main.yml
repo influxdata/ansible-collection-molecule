@@ -12,8 +12,8 @@ __influxdb1x_platform_defaults:
   # Path to the orchestrator API (without the base URL)
   orchestrator_api_path: /v1/potato
   # Basic auth credentials for orchestrator access
-  orchestrator_username: "{{ lookup('env', 'ORCHESTRATOR_API_USERNAME') | default('admin') }}"
-  orchestrator_password: "{{ lookup('env', 'ORCHESTRATOR_API_PASSWORD') | default('imnotsecure') }}"
+  orchestrator_username: "{{ lookup('env', 'ORCHESTRATOR_API_USERNAME') | default('') }}"
+  orchestrator_password: "{{ lookup('env', 'ORCHESTRATOR_API_PASSWORD') | default('') }}"
   # Consider a cluster creation successful, regardless of the 'machines_status' field in the orchestrator response
   ignore_machines_status: false
   # Desired value of the 'machines_status' field in the orchestrator response
@@ -56,7 +56,13 @@ __influxdb1x_platform_defaults:
   #  - Requires RW access to the AWS API for EC2 instances and security groups
   enable_aws_config: true
   # AWS profile to use for authentication
-  aws_profile: "{{ lookup('env', 'AWS_PROFILE') | default('') }}"
+  aws_profile: "{{ lookup('env', 'AWS_PROFILE') | default(omit) }}"
+  # AWS key ID to use for authentication (exclusive with 'aws_profile')
+  aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') | default(omit) }}"
+  # AWS secret key to use for authentication (exclusive with 'aws_profile')
+  aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') | default(omit) }}"
+  # AWS session token to use for authentication (optional)
+  aws_session_token: "{{ lookup('env', 'AWS_SESSION_TOKEN') | default(omit) }}"
   # Name of the security group used for connections to the instance
   security_group_name: "molecule-{{ influxdb1x_platform_run_config.run_id }}"
   # Whether the security group should be created (ephemeral) or already exists (persistent)

@@ -12,7 +12,7 @@ platforms:
     #vpc_id: vpc-07bd460b98a3fb162
     region: us-west-2
     orchestrator_address: https://potato.a.influxcloud.us
-    private_key_source_path: "{{ lookup('env', 'HOME') }}/.ssh/molecule-ci-influxdb1x"
+    private_key_source_path: "~/.ssh/molecule-ci-influxdb1x"
     ssh_user: core
     ssh_port: 22
     cluster_config:

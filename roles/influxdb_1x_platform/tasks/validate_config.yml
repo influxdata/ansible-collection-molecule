@@ -62,8 +62,8 @@
     label: "{{ __influxdb1x_platform_cfg.name | default('invalid name', true) }}"
   vars:
     __influxdb1x_aws_profile: "{{ __influxdb1x_platform_cfg.aws_profile }}"
-    __influxdb1x_aws_access_key: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') }}"
-    __influxdb1x_aws_secret_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') }}"
+    __influxdb1x_aws_access_key: "{{ __influxdb1x_platform_cfg.aws_access_key_id }}"
+    __influxdb1x_aws_secret_key: "{{ __influxdb1x_platform_cfg.aws_secret_access_key }}"
   ansible.builtin.assert:
     that:
       - __influxdb1x_platform_cfg.security_group_type in ['ephemeral', 'persistent']
