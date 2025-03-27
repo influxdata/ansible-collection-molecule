@@ -1,58 +1,72 @@
 ---
 # Update EC2 instances for accessiblity by Molecule
+#
+# Expected input variables:
+#  __influxdb1x_platform: The platform configuration to update
+#  __influxdb1x_platform_ec2_instance_data: The list of EC2 instances to update, including platform configuration
+#
 
-- name: Search for existing EC2 instances
-  amazon.aws.ec2_instance_info:
+- name: Modify EC2 | DEBUG | Show platform configuration
+  ansible.builtin.debug:
+    var: __influxdb1x_platform
+    verbosity: 1
+
+- name: Modify EC2 | DEBUG | Show EC2 instance data
+  ansible.builtin.debug:
+    var: __influxdb1x_platform_ec2_instance_data
+    verbosity: 1
+
+- name: Modify EC2 | Configure EC2 instance
+  loop: "{{ __influxdb1x_platform_ec2_instance_data }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_ec2_instance
+    label: "{{ __influxdb1x_platform_ec2_instance.instance_id }}"
+  vars:
+    __influxdb1x_platform_ec2_current_security_groups: >-
+      {{ __influxdb1x_platform_ec2_instance.security_groups | map(attribute='group_id') | list }}
+  amazon.aws.ec2_instance:
     profile: "{{ __influxdb1x_platform.aws_profile | default(omit) }}"
     access_key: "{{ __influxdb1x_platform.aws_access_key_id | default(omit) }}"
     secret_key: "{{ __influxdb1x_platform.aws_secret_access_key | default(omit) }}"
     session_token: "{{ __influxdb1x_platform.aws_session_token | default(omit) }}"
-    region: "{{ __influxdb1x_platform_cfg.region }}"
-    filters:
-      "tag:molecule-run-id": "{{ influxdb1x_platform_run_config.run_id }}"
-  register: __influxdb1x_platform_existing_ec2_instances
+    region: "{{ __influxdb1x_platform.region }}"
+    instance_ids: "{{ [__influxdb1x_platform_ec2_instance.instance_id] }}"
+    security_groups: >-
+      {{
+        (__influxdb1x_platform_ec2_current_security_groups
+        + [__influxdb1x_platform.ephemeral_security_group_id])
+        | unique
+      }}
+    # We always want test ec2 hosts to be running
+    state: running
+  register: __influxdb1x_platform_ec2_instance_update_async
+  async: 60
+  poll: 0
+  changed_when: false
 
-- name: Validate returned EC2 instances
-  ansible.builtin.assert:
-    that:
-      - __influxdb1x_platform_existing_ec2_instances.instances | length > 0
-    fail_msg: "No existing EC2 instances found for Molecule run ID: {{ influxdb1x_platform_run_config.run_id }}"
-    success_msg: "Found existing EC2 instances for Molecule run ID: {{ influxdb1x_platform_run_config.run_id }}"
+- name: Modify EC2 | Instance configuration is complete
+  loop: "{{ __influxdb1x_platform_ec2_instance_update_async.results }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_ec2_instance_update
+    label: "{{ __influxdb1x_platform_ec2_instance_update.__influxdb1x_platform_ec2_instance.instance_id }}"
+  ansible.builtin.async_status:
+    jid: "{{ __influxdb1x_platform_ec2_instance_update.ansible_job_id }}"
+  register: __influxdb1x_platform_ec2_instance_update_status
+  until: __influxdb1x_platform_ec2_instance_update_status.finished
+  retries: 20
+  delay: 5
+# TODO: Add 'changed_when' field with relevant condition for ec2 instance changes
 
-- name: Modify EC2 instances
-  vars:
-    __influxdb1x_platform_ec2_instances: "{{ __influxdb1x_platform_existing_ec2_instances if __influxdb1x_platform_new_ec2_instances.skipped |
-      default(false) else __influxdb1x_platform_new_ec2_instances }}"
-  block:
-    - name: Show target ec2 instances
-      ansible.builtin.debug:
-        var: __influxdb1x_platform_ec2_instances
-        verbosity: 2
+- name: Modify EC2 | Clean up async cache
+  loop: "{{ __influxdb1x_platform_ec2_instance_update_status.results }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_ec2_instance_update
+    label: "{{ __influxdb1x_platform_ec2_instance_update.instance_ids | first }}"
+  ansible.builtin.async_status:
+    jid: "{{ __influxdb1x_platform_ec2_instance_update.ansible_job_id }}"
+    mode: cleanup
 
-    - name: Show existing security groups for instance 0
-      ansible.builtin.debug:
-        var: __influxdb1x_platform_ec2_instances.instances[0].security_groups | map(attribute='group_id') | list
-        verbosity: 1
-
-    # NOTE: This assumes that all cluster members have the same security groups!
-    - name: Add Molecule access security group to hosts
-      loop: "{{ __influxdb1x_platform_ec2_instances.instances }}"
-      loop_control:
-        loop_var: __influxdb1x_platform_instance
-        label: "{{ __influxdb1x_platform_instance.instance_id }}"
-      vars:
-        __influxdb1x_platform_ec2_current_security_groups: "{{ __influxdb1x_platform_ec2_instance.security_groups | map(attribute='group_id') | list }}"
-        __influxdb1x_platform_cfg: "{{ influxdb1x_platforms
-          | selectattr('cluster_id', 'defined')
-          | selectattr('cluster_id', 'equalto', __influxdb1x_platform_instance.tags.ClusterID)
-          | list | first }}"
-        __influxdb1x_platform_molecule_security_groups: "{{ __influxdb1x_platform_cfg.security_groups or [__influxdb1x_platform_cfg.security_group_name] }}"
-      amazon.aws.ec2_instance:
-        profile: "{{ __influxdb1x_platform.aws_profile | default(omit) }}"
-        access_key: "{{ __influxdb1x_platform.aws_access_key_id | default(omit) }}"
-        secret_key: "{{ __influxdb1x_platform.aws_secret_access_key | default(omit) }}"
-        session_token: "{{ __influxdb1x_platform.aws_session_token | default(omit) }}"
-        instance_ids: "{{ __influxdb1x_platform_ec2_instances.instances | map(attribute='instance_id') | list }}"
-        security_groups: "{{ __influxdb1x_platform_molecule_security_groups + __influxdb1x_platform_ec2_current_security_groups }}"
-        state: running
+- name: STOP HERE
+  ansible.builtin.fail:
+    msg: "STOP HERE"
 

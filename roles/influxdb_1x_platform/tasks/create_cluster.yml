@@ -101,6 +101,7 @@
   ansible.builtin.wait_for:
     timeout: "{{ __influxdb1x_platform.creation_timeout }}"
   async: "{{ __influxdb1x_platform.creation_timeout | int + 10 }}"
+  poll: 5
 
 
 - name: Create | Collect cluster instance EC2 data
@@ -146,16 +147,24 @@
     - name: Create | AWS | Build ephemeral security groups
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/create_aws_sg.yml"
 
-    - name: STOP HERE
-      ansible.builtin.fail:
-        msg: "STOP HERE"
-
     - name: Create | AWS | Attach security groups to instances
       loop: "{{ __influxdb1x_target_platforms }}"
       loop_control:
         loop_var: __influxdb1x_platform
         label: "{{ __influxdb1x_platform.name }}"
-      ansible.builtin.include_tasks: "{{ role_path }}/tasks/attach_aws_sg.yml"
+      vars:
+        __influxdb1x_platform_ec2_instance_data: >-
+          {{
+            __influxdb1x_platform_ec2_instances.results
+            | selectattr('__influxdb1x_platform.name', 'equalto', __influxdb1x_platform.name)
+            | map(attribute='instances')
+            | first
+          }}
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/modify_aws_instances.yml"
+
+    - name: STOP HERE
+      ansible.builtin.fail:
+        msg: "STOP HERE"
 
 - name: Check SSH connectivity
   ansible.builtin.wait_for:
