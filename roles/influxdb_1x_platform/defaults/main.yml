@@ -12,7 +12,11 @@
 influxdb1x_platform_state: "{{ platform_target_state | default('present') }}"
 
 # Molecule platform configuration (list of dictionaries)
-influxdb1x_platform_definition: "{{ [platform_target_config] if platform_target_config is defined else (molecule_yml.platforms | default([])) }}"
+influxdb1x_platform_definition: >-
+  {{
+    [platform_target_config] if platform_target_config is defined
+    else (molecule_yml.platforms | default([]))
+  }}
 
 # Values that can be set in the molecule.yml platform definition
 #  - see the README or vars/main.yml for more information

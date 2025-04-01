@@ -66,7 +66,3 @@
     jid: "{{ __influxdb1x_platform_ec2_instance_update.ansible_job_id }}"
     mode: cleanup
 
-- name: STOP HERE
-  ansible.builtin.fail:
-    msg: "STOP HERE"
-

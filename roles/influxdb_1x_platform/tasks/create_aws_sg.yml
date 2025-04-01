@@ -129,7 +129,8 @@
                   | first -%}
                 {%- set _ = __influxdb1x_platform_output.append({
                   'name': __influxdb1x_platform.name,
-                  'ephemeral_security_group_id': __influxdb1x_platform_ephemeral_security_group_data.group_id
+                  'ephemeral_security_group_id': __influxdb1x_platform_ephemeral_security_group_data.group_id,
+                  'vpc_id': __influxdb1x_platform.vpc_id
                 }) -%}
               {%- endfor -%}
               {{ __influxdb1x_platform_output }}

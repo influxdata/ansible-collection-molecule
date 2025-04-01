@@ -58,7 +58,7 @@
           'ansible_host': __influxdb1x_platform_instance.public_ip_address,
           'ansible_port': __influxdb1x_platform.ssh_port,
           'ansible_user': __influxdb1x_platform.ssh_user,
-          'ansible_ssh_private_key_file': __influxdb1x_platform.private_key_runtime_path,
+          'identity_file': __influxdb1x_platform.private_key_runtime_path,
           'ec2_instance_id': __influxdb1x_platform_instance.instance_id
         } | combine(__influxdb1x_tag_hostvars)) -%}
       {%- endfor -%}

@@ -7,16 +7,29 @@ driver:
   options:
     managed: true
 platforms:
-  - name: influxdb1x-platform-test
+  - name: influxdb1x-platform-al2
     type: influxdb_1x
-    #vpc_id: vpc-07bd460b98a3fb162
     region: us-west-2
     orchestrator_address: https://potato.a.influxcloud.us
-    private_key_source_path: "~/.ssh/molecule-ci-influxdb1x"
-    ssh_user: core
+    private_key_source_path: "~/.ssh/_caroline-c1-dev"
+    ssh_user: _caroline
     ssh_port: 22
     cluster_config:
       config_tag: 1.11.6.1-staging-pro
+      init: latest
+    ignore_machines_status: true
+    creation_timeout: 240
+    hostvars: {}
+  - name: influxdb1x-platform-rocky
+    type: influxdb_1x
+    region: us-west-2
+    orchestrator_address: https://potato.a.influxcloud.us
+    private_key_source_path: "~/.ssh/_caroline-c1-dev"
+    ssh_user: _caroline
+    ssh_port: 22
+    cluster_config:
+      config_tag: 1.11.6.1-staging-pro
+      ami: ami-04f630042d9820927
       init: latest
     ignore_machines_status: true
     creation_timeout: 240

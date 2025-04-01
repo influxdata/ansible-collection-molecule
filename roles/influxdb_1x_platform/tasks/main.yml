@@ -43,23 +43,31 @@
           {%- for __platform in __platform_config -%}
             {%- if __influxdb1x_platform_instance_configs is defined -%}
               {%- set __platform_instance_config = __influxdb1x_platform_instance_configs
-                | selectattr('instance', 'equalto', __platform.name) | first -%}
-              {%- set __platform_hostvars_merged = {
-                  'ansible_host': __platform_instance_config.address,
-                  'ansible_port': __platform_instance_config.port,
-                  'ansible_user': __platform_instance_config.user,
-                  'ansible_ssh_private_key_file': __platform_instance_config.identity_file,
-                  'ec2_instance_id': __platform_instance_config.instance_id,
-                } -%}
-              {%- endif -%}
-            {%- set _ = __platform_instances.update({
-              __platform.name: {
-                'hostvars': __platform.hostvars | default({})
-                  | combine(ec2_platform_hostvars_base)
-                  | combine(__platform_hostvars_merged | default({})),
-                'instance_config': __platform_instance_config | default({})
-              }
-            }) -%}
+                | selectattr('instance', 'equalto', __platform.name) -%}
+              {%- set __influxdb1x_platform = __influxdb1x_platforms
+                | selectattr('name', 'equalto', __platform.name) | first -%}
+              {%- for __influxdb1x_platform_instance in __influxdb1x_platform_instance_configs -%}
+                {%- set __platform_live_hostvars = {
+                    'ansible_host': __influxdb1x_platform_instance.ansible_host,
+                    'ansible_port': __influxdb1x_platform_instance.ansible_port,
+                    'ansible_user': __influxdb1x_platform_instance.ansible_user,
+                    'ansible_ssh_private_key_file': __influxdb1x_platform_instance.identity_file,
+                    'ec2_instance_id': __influxdb1x_platform_instance.ec2_instance_id,
+                    'hostname': __influxdb1x_platform_instance.hostname,
+                    'orchestrator_data': __influxdb1x_platform.orchestrator_data
+                  } -%}
+                {%- set _ = __platform_instances.update({
+                  __influxdb1x_platform_instance.hostname: {
+                    'hostvars': __platform.hostvars | default({})
+                      | combine(__platform_live_hostvars | default({})),
+                    'instance_config': __influxdb1x_platform_instance | default({})
+                  }
+                }) -%}
+              {%- endfor -%}
+            {%- endif -%}
+            {%- if __influxdb1x_platform_instance_configs is not defined -%}
+              {%- set __platform_instances = {} -%}
+            {%- endif -%}
           {%- endfor -%}
           {{ __platform_instances }}
 
