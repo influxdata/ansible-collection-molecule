@@ -11,25 +11,26 @@ platforms:
     type: influxdb_1x
     region: us-west-2
     orchestrator_address: https://potato.a.influxcloud.us
-    private_key_source_path: "~/.ssh/_caroline-c1-dev"
-    ssh_user: _caroline
+    #private_key_source_path: "~/.ssh/_caroline-c1-dev"
+    ssh_user: ec2-user
     ssh_port: 22
     cluster_config:
+      ami: ami-0edf4a7e3058418ad
       config_tag: 1.11.6.1-staging-pro
       init: latest
     ignore_machines_status: true
-    creation_timeout: 240
+    creation_timeout: 120
     hostvars: {}
   - name: influxdb1x-platform-rocky
     type: influxdb_1x
     region: us-west-2
     orchestrator_address: https://potato.a.influxcloud.us
-    private_key_source_path: "~/.ssh/_caroline-c1-dev"
-    ssh_user: _caroline
+    #private_key_source_path: "~/.ssh/_caroline-c1-dev"
+    ssh_user: rocky
     ssh_port: 22
     cluster_config:
       config_tag: 1.11.6.1-staging-pro
-      ami: ami-04f630042d9820927
+      ami: ami-0c532acdba3db3e90
       init: latest
     ignore_machines_status: true
     creation_timeout: 240

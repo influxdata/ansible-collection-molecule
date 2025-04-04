@@ -1,7 +1,13 @@
 ---
-# vars file for potato_platform
+# vars file for influxdb_1x_platform
 # These are internal variables -- DO NOT MODIFY AT RUNTIME
 
+# Keep these (top level) keys out of the runtime configuration shown in logs and written to disk
+__influxdb1x_platform_sensitive_keys:
+  - orchestrator_password
+  - aws_secret_access_key
+  - aws_session_token
+  - private_key
 
 # Internal default configuration; combined with user-provided configuration at runtime
 __influxdb1x_platform_defaults:
@@ -44,11 +50,13 @@ __influxdb1x_platform_defaults:
   # The TCP port over which Ansible should connect to hosts
   ssh_port: 22
   # The path on the controller to the private key to use for SSH access
+  #  - Superceeded by 'private_key' if set
   # NOTE: This key is managed outside of Molecule (IE: by the cluster orchestrator), and must be provided to Molecule
   private_key_source_path: "{{ playbook_dir }}/files/id_rsa"
   # The path to the private SSH key used during runtime (copied from 'private_key_source_path')
   private_key_runtime_path: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/id_rsa"
-  public_key_runtime_path: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/id_rsa.pub"
+  # The (unencrypted) private key to use for SSH access -- superceedes 'private_key_source_path'
+  private_key: "{{ lookup('env', 'MOLECULE_SSH_PRIVATE_KEY') | default('') }}"
 
   ## AWS Configuration ##
   #
@@ -145,6 +153,9 @@ __influxdb1x_cluster_defaults:
   internal_id: "{{ influxdb1x_platform_run_config.run_id }}"
 
 
+__influxdb1x_platform_secrets: >-
+  {%- set __platforms = [] -%}
+
 
 # Run config handling
 __influxdb1x_run_id_random: "{{ lookup('password', '/dev/null chars=ascii_lowercase length=5') }}"
@@ -172,8 +183,8 @@ __influxdb1x_platform_cluster_id_mapping: {}
 __influxdb1x_orchestrator_api_url: >-
   {{ __influxdb1x_platform.orchestrator_address | default('') ~ __influxdb1x_platform.orchestrator_api_path | default('') }}
 
-# Merge the defaults with any options provided to this role
-__influxdb1x_platforms: >-
+# Merge the defaults with any options provided to this role (including sensitive keys)
+__influxdb1x_platforms_sensitive: >-
   {%- set __platforms = [] -%}
   {%- for __platform in influxdb1x_platform_definition -%}
     {%- set __platform_from_file = influxdb1x_platform_run_config.platforms | default([])
@@ -189,6 +200,17 @@ __influxdb1x_platforms: >-
       | combine(__influxdb1x_platform_defaults, recursive=True)
       | combine(__platform, recursive=True)
       | combine(__platform_from_file, recursive=True) -%}
+    {%- set _ = __platforms.append(__platform) -%}
+  {%- endfor -%}
+  {{ __platforms }}
+
+# Remove sensitive keys from the runtime configuration
+__influxdb1x_platforms: >-
+  {%- set __platforms = [] -%}
+  {%- for __platform in __influxdb1x_platforms_sensitive -%}
+    {%- for key in __influxdb1x_platform_sensitive_keys -%}
+      {%- set _ = __platform.pop(key, None) -%}
+    {%- endfor -%}
     {%- set _ = __platforms.append(__platform) -%}
   {%- endfor -%}
   {{ __platforms }}

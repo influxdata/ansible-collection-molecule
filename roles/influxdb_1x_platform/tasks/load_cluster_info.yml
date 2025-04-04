@@ -19,13 +19,18 @@
       loop_control:
         loop_var: __influxdb1x_platform
         label: "{{ __influxdb1x_platform.name }}"
+      vars:
+        __influxdb1x_platform_sensitive: >-
+          {{
+            __influxdb1x_platforms_sensitive | selectattr('name', 'eq', __influxdb1x_platform.name) | first
+          }}
       ansible.builtin.uri:
         url: "{{ __influxdb1x_orchestrator_api_url }}/clusters/{{ __influxdb1x_platform.cluster_id }}"
         method: GET
         return_content: true
         body_format: json
         user: "{{ __influxdb1x_platform.orchestrator_username }}"
-        password: "{{ __influxdb1x_platform.orchestrator_password }}"
+        password: "{{ __influxdb1x_platform_sensitive.orchestrator_password }}"
         status_code:
           - 200
           - 404

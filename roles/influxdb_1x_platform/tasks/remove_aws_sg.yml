@@ -13,14 +13,19 @@
 - name: Security group is ephemeral
   # At present we only support deletion of auto-generated ephemeral security groups
   when: __influxdb1x_platform_cfg.security_groups | default([]) | length == 0
+  vars:
+    __influxdb1x_platform_sensitive: >-
+      {{
+        __influxdb1x_platforms_sensitive | selectattr('name', 'eq', __influxdb1x_platform_cfg.name) | first
+      }}
   block:
     - name: Destroy AWS SG | Search for existing group
       when: __influxdb1x_platform_cfg.vpc_id is not defined
       amazon.aws.ec2_security_group_info:
         profile: "{{ __influxdb1x_platform_cfg.aws_profile | default(omit) }}"
         access_key: "{{ __influxdb1x_platform_cfg.aws_access_key_id | default(omit) }}"
-        secret_key: "{{ __influxdb1x_platform_cfg.aws_secret_access_key | default(omit) }}"
-        session_token: "{{ __influxdb1x_platform_cfg.aws_session_token | default(omit) }}"
+        secret_key: "{{ __influxdb1x_platform_sensitive.aws_secret_access_key | default(omit) }}"
+        session_token: "{{ __influxdb1x_platform_sensitive.aws_session_token | default(omit) }}"
         region: "{{ __influxdb1x_platform_cfg.region }}"
         filters:
           "tag:molecule-run-id": "{{ __influxdb1x_platform_cfg.internal_id }}"
@@ -41,8 +46,8 @@
       amazon.aws.ec2_security_group:
         profile: "{{ __influxdb1x_platform_cfg.aws_profile | default(omit) }}"
         access_key: "{{ __influxdb1x_platform_cfg.aws_access_key_id | default(omit) }}"
-        secret_key: "{{ __influxdb1x_platform_cfg.aws_secret_access_key | default(omit) }}"
-        session_token: "{{ __influxdb1x_platform_cfg.aws_session_token | default(omit) }}"
+        secret_key: "{{ __influxdb1x_platform_sensitive.aws_secret_access_key | default(omit) }}"
+        session_token: "{{ __influxdb1x_platform_sensitive.aws_session_token | default(omit) }}"
         region: "{{ __influxdb1x_platform_cfg.region }}"
         vpc_id: >-
           {{

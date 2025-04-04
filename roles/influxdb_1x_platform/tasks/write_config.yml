@@ -5,11 +5,13 @@
 #  - __influxdb1x_platform_config_content: Updated platform configuration to write to file
 #
 
+# WARNING: This could expose sensitive information in logs!!!
 - name: State | DEBUG | Show run configuration
   ansible.builtin.debug:
     var: influxdb1x_platform_run_config
     verbosity: 1
 
+# WARNING: This could expose sensitive information in logs!!!
 - name: State | DEBUG | Show updated platform configuration
   ansible.builtin.debug:
     var: __influxdb1x_platform_config_content
@@ -19,12 +21,14 @@
   when: __influxdb1x_platform_config_content.platforms is defined
   loop: "{{ __influxdb1x_platform_config_content.platforms }}"
   loop_control:
-    loop_var: __influxdb1x_platform
-    label: "{{ __influxdb1x_platform.name | default('Platform name undefined') }}"
+    loop_var: __influxdb1x_platform_validation
+    label: "{{ __influxdb1x_platform_validation.name | default('Platform name undefined') }}"
   ansible.builtin.assert:
     that:
-      - __influxdb1x_platform.name is defined
-    fail_msg: "Platform name not defined. Please specify a name for all platforms to be modified."
+      - __influxdb1x_platform_validation.name is defined
+    fail_msg: >
+      Platform name for updated contentnot defined!
+      Please specify a name for all platforms to be modified.
     success_msg: "Platform name defined."
 
 - name: State | Write run config to file

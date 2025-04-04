@@ -23,6 +23,11 @@
       loop_control:
         loop_var: __influxdb1x_platform
         label: "{{ __influxdb1x_platform.name }}"
+      vars:
+        __influxdb1x_platform_sensitive: >-
+          {{
+            __influxdb1x_platforms_sensitive | selectattr('name', 'eq', __influxdb1x_platform.name) | first
+          }}
       ansible.builtin.uri:
         url: "{{ __influxdb1x_orchestrator_api_url }}/clusters/{{ __influxdb1x_platform.cluster_id }}"
         body_format: json
@@ -30,7 +35,7 @@
           machines_status: "{{ __influxdb1x_platform.destroyed_machines_status }}"
         method: PATCH
         user: "{{ __influxdb1x_platform.orchestrator_username }}"
-        password: "{{ __influxdb1x_platform.orchestrator_password }}"
+        password: "{{ __influxdb1x_platform_sensitive.orchestrator_password }}"
         status_code:
           - 204
           - 422
@@ -46,11 +51,16 @@
       loop_control:
         loop_var: __influxdb1x_platform
         label: "{{ __influxdb1x_platform.name }}"
+      vars:
+        __influxdb1x_platform_sensitive: >-
+          {{
+            __influxdb1x_platforms_sensitive | selectattr('name', 'eq', __influxdb1x_platform.name) | first
+          }}
       ansible.builtin.uri:
         url: "{{ __influxdb1x_orchestrator_api_url }}/clusters/{{ __influxdb1x_platform.cluster_id }}"
         method: GET
         user: "{{ __influxdb1x_platform.orchestrator_username }}"
-        password: "{{ __influxdb1x_platform.orchestrator_password }}"
+        password: "{{ __influxdb1x_platform_sensitive.orchestrator_password }}"
         return_content: true
       register: __influxdb1x_platform_cluster_destruction_status
       until: __influxdb1x_platform_cluster_destruction_status.json.machines_status == __influxdb1x_platform.destroyed_machines_status

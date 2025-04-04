@@ -93,11 +93,16 @@
       loop_control:
         loop_var: __influxdb1x_platform
         label: "{{ __influxdb1x_platform.name }}"
+      vars:
+        __influxdb1x_platform_sensitive: >-
+          {{
+            __influxdb1x_platforms_sensitive | selectattr('name', 'eq', __influxdb1x_platform.name) | first
+          }}
       amazon.aws.ec2_security_group:
         profile: "{{ __influxdb1x_platform.aws_profile | default(omit) }}"
         access_key: "{{ __influxdb1x_platform.aws_access_key_id | default(omit) }}"
-        secret_key: "{{ __influxdb1x_platform.aws_secret_access_key | default(omit) }}"
-        session_token: "{{ __influxdb1x_platform.aws_session_token | default(omit) }}"
+        secret_key: "{{ __influxdb1x_platform_sensitive.aws_secret_access_key | default(omit) }}"
+        session_token: "{{ __influxdb1x_platform_sensitive.aws_session_token | default(omit) }}"
         iam_instance_profile: "{{ __influxdb1x_platform.iam_instance_profile | default(omit) }}"
         region: "{{ __influxdb1x_platform.region }}"
         group_id: "{{ __influxdb1x_platform.ephemeral_security_group_id | default(omit) }}"
