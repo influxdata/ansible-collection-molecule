@@ -20,19 +20,27 @@ init_collection_source: git
 #  - Set to "" to disable
 init_ansible_secret_path: "{{ lookup('env', 'ANSIBLE_VAULT_PASSWORD_FILE') | default('') }}"
 
-# Platforms that this test configuration should test
+# Platforms that this test configuration should run on
 #  list of dicts, each required to contain:
 #    name: (string)
 #    type: (string)
-#    config: (dictionary, configuration for specified "type")
+#    <platform-specific configuration>
 #
 #  for example, in the case of the "docker" type:
-#    config:
+#    - name: docker-platform-with-a-descriptive-name
+#      type: docker
 #      image: (string, container image path)
-#      systemd: (true/false)
-#      modify_image: (true/false)
-#      modify_image_buildpath: (string)     # path to directory containing Dockerfile
-#      privileged: (true/false)
+#      systemd: (true/false)                # enable systemd in the container
+#      privileged: (true/false)             # run the container in privileged mode
+#      cpus: (int)                          # number of CPUs to allocate to the container
+#      memory: (int)K/M/G                   # amount of memory to allocate to the container
+#      published_ports: (list)              # list of ports to publish from the container
+#      exec_systemd: (true/false)           # customize the container entrypoint to run systemd
+#      exec_systemd_build_commands: (list)  # commands to run when building the systemd-enabled container
+#      hostvars: (dict)                     # hostvars to be added to the Ansible inventory
+#
+#   See README.md in the 'roles/docker_platform' directory for more information
+#    - Similarly, other platform types will have their own README.md files
 #
 # If not specified, the role will attempt to use the default platform configuration
 init_platforms: []

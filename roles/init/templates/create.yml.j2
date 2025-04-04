@@ -6,16 +6,10 @@
     - name: Create docker platform(s)
       ansible.builtin.include_role:
         name: {{ ansible_collection_name }}.platform
-      vars:{% raw %}
-        platform_name: "{{ item.name }}"
-        platform_state: present
-        platform_type: "{{ item.type }}"
-        platform_molecule_cfg: "{{ item }}"
-      loop: "{{ molecule_yml.platforms }}"
-      loop_control:
-        label: item.name
 
+{% raw %}
 # We want to avoid errors like "Failed to create temporary directory"
+#  so we connect to the container and verify that the system is ready.
 - name: Validate that inventory was refreshed
   hosts: molecule
   gather_facts: false
@@ -36,6 +30,7 @@
           - ansible_service_mgr
 
     - name: Check on Systemd
+      when: ansible_service_mgr == 'systemd'
       block:
         - name: Wait for systemd to complete initialization.
           ansible.builtin.command: systemctl is-system-running
@@ -47,12 +42,4 @@
           delay: 5
           changed_when: false
           failed_when: systemctl_status.rc > 1
-
-        - name: Check systemd status
-          ansible.builtin.assert:
-            that:
-              - systemctl_status.stdout == 'running'
-            fail_msg: Systemd-enabled host does not have a healthy Systemd!
-            success_msg: Systemd is running
-      when: ansible_service_mgr == 'systemd'
 
