@@ -24,7 +24,7 @@
     access_key: "{{ __influxdb1x_platform.aws_access_key_id | default(omit) }}"
     secret_key: "{{ __influxdb1x_platform_sensitive.aws_secret_access_key | default(omit) }}"
     session_token: "{{ __influxdb1x_platform_sensitive.aws_session_token | default(omit) }}"
-    region: "{{ __influxdb1x_platform.region }}"
+    region: "{{ __influxdb1x_platform.cluster_config.region }}"
     filters:
       "tag:ClusterID": "{{ __influxdb1x_platform.cluster_id }}"
       "tag:molecule-run-id": "{{ __influxdb1x_platform.internal_id }}"

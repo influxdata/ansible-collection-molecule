@@ -104,7 +104,7 @@
         secret_key: "{{ __influxdb1x_platform_sensitive.aws_secret_access_key | default(omit) }}"
         session_token: "{{ __influxdb1x_platform_sensitive.aws_session_token | default(omit) }}"
         iam_instance_profile: "{{ __influxdb1x_platform.iam_instance_profile | default(omit) }}"
-        region: "{{ __influxdb1x_platform.region }}"
+        region: "{{ __influxdb1x_platform.cluster_config.region }}"
         group_id: "{{ __influxdb1x_platform.ephemeral_security_group_id | default(omit) }}"
         vpc_id: "{{ __influxdb1x_platform.vpc_id }}"
         name: "{{ __influxdb1x_platform.security_group_name }}"

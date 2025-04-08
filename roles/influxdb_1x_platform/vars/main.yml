@@ -28,7 +28,7 @@ __influxdb1x_platform_defaults:
   destroyed_machines_status: terminated
   # The maximum time (in seconds) to wait for cluster creation
   #  NOTE: Wait time will always be this value if 'ignore_machines_status' is set to true
-  creation_timeout: 300
+  creation_timeout: 900
   # The maximum time (in seconds) to wait for cluster destruction
   destruction_timeout: 300
   # The time (in seconds) to wait after initially detecting an open SSH port on cluster hosts before continuing
@@ -46,9 +46,9 @@ __influxdb1x_platform_defaults:
   ## SSH Configuration ##
   #
   # The default SSH username for connecting to cluster hosts
-  ssh_user: ansible
+  ssh_user: "{{ lookup('env', 'MOLECULE_SSH_USER') | default('ansible') }}"
   # The TCP port over which Ansible should connect to hosts
-  ssh_port: 22
+  ssh_port: "{{ lookup('env', 'MOLECULE_SSH_PORT') | default(22) }}"
   # The path on the controller to the private key to use for SSH access
   #  - Superceeded by 'private_key' if set
   # NOTE: This key is managed outside of Molecule (IE: by the cluster orchestrator), and must be provided to Molecule

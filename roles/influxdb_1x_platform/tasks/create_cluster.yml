@@ -118,7 +118,7 @@
       until: __influxdb1x_platform_cluster_creation_status.json.machines_status == __influxdb1x_platform.desired_machines_status
       retries: "{{ (__influxdb1x_platform.creation_timeout | int / 10) | int }}"
       delay: 10
-      async: "{{ __influxdb1x_platform.creation_timeout | int + 10 }}"
+      async: "{{ (__influxdb1x_platform.creation_timeout | int / 10) | int + 10 }}"
 
     - name: Set cluster creation end time
       when: __influxdb1x_platform_cluster_creation_status is changed
@@ -126,6 +126,9 @@
         __influxdb1x_platform_cluster_creation_end: "{{ lookup('pipe', 'date +%s')|int }}"
 
     - name: Create | Wait for cluster creation timeout (ignore orchestrator reported status)
+      when:
+        - __influxdb1x_platforms_watch_timeout | length > 0
+        - __influxdb1x_platform_cluster_creation_status.json.machines_status | unique != [__influxdb1x_platform.desired_machines_status]
       vars:
         __influxdb1x_platform_max_creation_timeout: >-
           {{

@@ -30,7 +30,7 @@
     access_key: "{{ __influxdb1x_platform.aws_access_key_id | default(omit) }}"
     secret_key: "{{ __influxdb1x_platform_sensitive.aws_secret_access_key | default(omit) }}"
     session_token: "{{ __influxdb1x_platform_sensitive.aws_session_token | default(omit) }}"
-    region: "{{ __influxdb1x_platform.region }}"
+    region: "{{ __influxdb1x_platform.cluster_config.region }}"
     instance_ids: "{{ [__influxdb1x_platform_ec2_instance.instance_id] }}"
     security_groups: >-
       {{
