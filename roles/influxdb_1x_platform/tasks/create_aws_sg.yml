@@ -1,0 +1,143 @@
+---
+# Configure the networking in AWS EC2 to allow access to the cluster hosts by Molecule
+#
+# Expected input variables:
+#   __influxdb1x_target_platforms: The list of platform configurations to update
+#   __influxdb1x_platform_ec2_instances: The list of EC2 instances to update
+#
+# Output:
+#
+
+- name: Create security groups
+  vars:
+    __influxdb1x_platforms_novpc: >-
+      {{
+        __influxdb1x_target_platforms
+        | selectattr('vpc_id', 'undefined')
+        | list
+      }}
+
+    ## NOTE: The following vars are only accessible when the '__influxdb_platform' var is set (IE in a loop)
+    __influxdb1x_platform_instances: >-
+      {{
+        __influxdb1x_platform_ec2_instances.results
+        | selectattr('__influxdb1x_platform.name', 'equalto', __influxdb1x_platform.name)
+        | map(attribute='instances')
+        | first
+      }}
+    __influxdb1x_platform_network_interfaces: >-
+      {{
+        __influxdb1x_platform_instances
+        | map(attribute='network_interfaces')
+        | list
+      }}
+    __influxdb1x_platform_vpc_ids: >-
+      {{
+        __influxdb1x_platform_network_interfaces
+        | first
+        | map(attribute='vpc_id')
+        | unique
+        | list
+      }}
+  block:
+    - name: AWS Security Group | 🐜 | Show VPC IDs
+      loop: "{{ __influxdb1x_platforms_novpc }}"
+      loop_control:
+        loop_var: __influxdb1x_platform
+        label: "{{ __influxdb1x_platform.name }}"
+      ansible.builtin.debug:
+        var: __influxdb1x_platform_vpc_ids
+        verbosity: 1
+
+    - name: AWS Security Group | Validate VPC IDs
+      loop: "{{ __influxdb1x_platforms_novpc }}"
+      loop_control:
+        loop_var: __influxdb1x_platform
+        label: "{{ __influxdb1x_platform.name }}"
+      ansible.builtin.assert:
+        that:
+          - __influxdb1x_platform_vpc_ids | length == 1
+        quiet: true
+        fail_msg: "Multiple VPCs discovered! Only single-VPC clusters are supported. VPCs: {{ __influxdb1x_platform_vpc_ids | join(', ') }}"
+
+    - name: AWS Security Group | Map VPC ID (if needed)
+      loop: "{{ __influxdb1x_platforms_novpc }}"
+      loop_control:
+        loop_var: __influxdb1x_platform
+        label: "{{ __influxdb1x_platform.name }}"
+      vars:
+        __influxdb1x_platform_config_content: >-
+          {{ {
+            'platforms': [
+              {
+                'name': __influxdb1x_platform.name,
+                'vpc_id': __influxdb1x_platform_vpc_ids | first
+              }
+            ]
+          } }}
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/write_config.yml"
+
+    - name: AWS Security Group | Validate VPC IDs
+      loop: "{{ __influxdb1x_target_platforms }}"
+      loop_control:
+        loop_var: __influxdb1x_platform
+        label: "{{ __influxdb1x_platform.name }}"
+      ansible.builtin.assert:
+        that:
+          - __influxdb1x_platform_vpc_ids | length == 1
+        quiet: true
+
+    - name: AWS Security Group | Provision ephemeral security groups
+      loop: "{{ __influxdb1x_target_platforms }}"
+      # Always run this task, in case rules, etc. have changed
+      loop_control:
+        loop_var: __influxdb1x_platform
+        label: "{{ __influxdb1x_platform.name }}"
+      vars:
+        __influxdb1x_platform_sensitive: >-
+          {{
+            __influxdb1x_platforms_sensitive | selectattr('name', 'eq', __influxdb1x_platform.name) | first
+          }}
+      amazon.aws.ec2_security_group:
+        profile: "{{ __influxdb1x_platform.aws_profile | default(omit) }}"
+        access_key: "{{ __influxdb1x_platform.aws_access_key_id | default(omit) }}"
+        secret_key: "{{ __influxdb1x_platform_sensitive.aws_secret_access_key | default(omit) }}"
+        session_token: "{{ __influxdb1x_platform_sensitive.aws_session_token | default(omit) }}"
+        iam_instance_profile: "{{ __influxdb1x_platform.iam_instance_profile | default(omit) }}"
+        region: "{{ __influxdb1x_platform.cluster_config.region }}"
+        group_id: "{{ __influxdb1x_platform.ephemeral_security_group_id | default(omit) }}"
+        vpc_id: "{{ __influxdb1x_platform.vpc_id }}"
+        name: "{{ __influxdb1x_platform.security_group_name }}"
+        description: "{{ __influxdb1x_platform.ephemeral_security_group_description }}"
+        rules: "{{ __influxdb1x_platform.ephemeral_security_group_rules.ingress }}"
+        rules_egress: "{{ __influxdb1x_platform.ephemeral_security_group_rules.egress }}"
+        tags:
+          Name: "{{ __influxdb1x_platform.security_group_name }}"
+          molecule-run-id: "{{ __influxdb1x_platform.internal_id }}"
+      register: __influxdb1x_platform_ephemeral_security_group
+      async: 300
+      poll: 2
+
+    - name: AWS Security Group | 🐜 | Show ephemeral security group data
+      ansible.builtin.debug:
+        var: __influxdb1x_platform_ephemeral_security_group
+        verbosity: 1
+
+    - name: AWS Security Group | Store ephemeral security group data
+      vars:
+        __influxdb1x_platform_config_content:
+            platforms: >-
+              {%- set __influxdb1x_platform_output = [] -%}
+              {%- for __influxdb1x_platform in __influxdb1x_target_platforms -%}
+                {%- set __influxdb1x_platform_ephemeral_security_group_data = __influxdb1x_platform_ephemeral_security_group.results
+                  | selectattr('__influxdb1x_platform.name', 'equalto', __influxdb1x_platform.name)
+                  | first -%}
+                {%- set _ = __influxdb1x_platform_output.append({
+                  'name': __influxdb1x_platform.name,
+                  'ephemeral_security_group_id': __influxdb1x_platform_ephemeral_security_group_data.group_id,
+                  'vpc_id': __influxdb1x_platform.vpc_id
+                }) -%}
+              {%- endfor -%}
+              {{ __influxdb1x_platform_output }}
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/write_config.yml"
+

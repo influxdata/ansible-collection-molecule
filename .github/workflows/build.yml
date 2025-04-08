@@ -9,9 +9,26 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      runner-type:
+        required: true
+        description: 'Type of Github runner to use for the test'
+        type: string
+        default: 'ubuntu-latest'
+      log-level:
+        required: true
+        description: 'Log level for the test'
+        type: choice
+        default: '0'
+        options:
+          - '0'
+          - '1'
+permissions:
+  contents: read
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.inputs.runner-type || 'ubuntu-latest' }}
     strategy:
       max-parallel: 4
       matrix:
@@ -34,6 +51,7 @@ jobs:
           pip install molecule ansible-lint requests boto3[crt]
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
+      # WARNING: This could cause ansible environment conflicts with other (unrelated) tests on non-ephemeral runners
       - name: Build and install collection
         run: |
           ansible-galaxy collection build --force
@@ -52,13 +70,20 @@ jobs:
           # Make molecule output colored content (easier to read via GH UI)
           PY_COLORS: 1
           ANSIBLE_FORCE_COLOR: 1
+          ANSIBLE_VERBOSITY: ${{ github.event.inputs.log-level || '0' }}
+          ORCHESTRATOR_ADDRESS: ${{ vars.ORCHESTRATOR_ADDRESS }}
+          ORCHESTRATOR_API_USERNAME: ${{ vars.ORCHESTRATOR_API_USERNAME }}
+          MOLECULE_SSH_PRIVATE_KEY: ${{ secrets.MOLECULE_SSH_PRIVATE_KEY }}
+          ORCHESTRATOR_API_PASSWORD: ${{ secrets.ORCHESTRATOR_API_PASSWORD }}
         run: |
           molecule test -s ${{ matrix.molecule-scenario }}
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: ${{ github.event.inputs.runner-type || 'ubuntu-latest' }}
     needs: build
     if: github.event_name == 'push'
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 

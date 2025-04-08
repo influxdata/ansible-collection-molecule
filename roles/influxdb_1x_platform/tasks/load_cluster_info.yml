@@ -1,0 +1,68 @@
+---
+# Load any existing information about the defined InfluxDB clusters
+
+- name: An existing cluster is defined
+  vars:
+    __influxdb1x_platform_existing_clusters: >-
+      {{
+        __influxdb1x_platforms | selectattr('cluster_id', 'defined')
+        | selectattr('cluster_id', 'truthy') | list
+      }}
+  block:
+    - name: DEBUG | Show existing cluster information
+      ansible.builtin.debug:
+        var: __influxdb1x_platform_existing_clusters
+        verbosity: 1
+
+    - name: Check State | Load cluster configuration from orchestrator
+      loop: "{{ __influxdb1x_platform_existing_clusters }}"
+      loop_control:
+        loop_var: __influxdb1x_platform
+        label: "{{ __influxdb1x_platform.name }}"
+      vars:
+        __influxdb1x_platform_sensitive: >-
+          {{
+            __influxdb1x_platforms_sensitive | selectattr('name', 'eq', __influxdb1x_platform.name) | first
+          }}
+      ansible.builtin.uri:
+        url: "{{ __influxdb1x_orchestrator_api_url }}/clusters/{{ __influxdb1x_platform.cluster_id }}"
+        method: GET
+        return_content: true
+        body_format: json
+        user: "{{ __influxdb1x_platform.orchestrator_username }}"
+        password: "{{ __influxdb1x_platform_sensitive.orchestrator_password }}"
+        status_code:
+          - 200
+          - 404
+      register: __influxdb1x_platform_cluster_info_queries
+
+    - name: Check State | Cluster configuration not found
+      loop: "{{ __influxdb1x_platform_cluster_info_queries.results | selectattr('status', 'eq', 404) | list }}"
+      loop_control:
+        loop_var: __influxdb1x_platform_cluster_info_record
+        label: "{{ __influxdb1x_platform_cluster_info_record.__influxdb1x_platform.name }}"
+      ansible.builtin.assert:
+        that:
+          - __influxdb1x_platform_cluster_info_record.json.message == "Cluster ID not found"
+        fail_msg: >
+          Unhandled error loading cluster configuration!
+          {{ __influxdb1x_platform_cluster_info_record.json.message
+          | default(__influxdb1x_platform_cluster_info_record.msg) }}
+        success_msg: Cluster ID is not found
+
+    - name: Check State | Store orchestrator cluster data
+      vars:
+        __influxdb1x_platform_config_content:
+          platforms: >-
+            {%- set __influxdb1x_platform_output = [] -%}
+            {%- for __influxdb1x_platform_cluster_info_query in __influxdb1x_platform_cluster_info_queries.results
+              | selectattr('status', 'eq', 200) -%}
+              {%- set _ = __influxdb1x_platform_output.append({
+                'name': __influxdb1x_platform_cluster_info_query.__influxdb1x_platform.name,
+                'cluster_id': __influxdb1x_platform_cluster_info_query.json.id,
+                'orchestrator_data': __influxdb1x_platform_cluster_info_query.json
+              }) -%}
+            {%- endfor -%}
+            {{ __influxdb1x_platform_output }}
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/write_config.yml"
+

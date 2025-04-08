@@ -1,0 +1,125 @@
+---
+# Provision InfluxDB 1.x platform
+#
+
+- name: Provision | Write run config to file
+  vars:
+    __influxdb1x_platform_config_content:
+      platforms: "{{ __influxdb1x_platforms }}"
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/write_config.yml"
+
+- name: Create SSH key for host connections
+  vars:
+    # NOTE: This var is only accessible when '__influxdb1x_platform' is defined (e.g. in a loop)
+    __influxdb1x_platform_sensitive: >-
+      {{
+        __influxdb1x_platforms_sensitive | selectattr('name', 'eq', __influxdb1x_platform.name) | first
+      }}
+  block:
+    - name: Provision | Controller | SSH private key exists (controller file)
+      loop: "{{ __influxdb1x_platforms }}"
+      loop_control:
+        loop_var: __influxdb1x_platform
+        label: "{{ __influxdb1x_platform.name }}"
+      when: __influxdb1x_platform_sensitive.private_key is falsy
+      ansible.builtin.copy:
+        src: "{{ __influxdb1x_platform.private_key_source_path }}"
+        dest: "{{ __influxdb1x_platform.private_key_runtime_path }}"
+        mode: "0600"
+
+    - name: Provision | Controller | SSH private key exists (environment)
+      loop: "{{ __influxdb1x_platforms }}"
+      loop_control:
+        loop_var: __influxdb1x_platform
+        label: "{{ __influxdb1x_platform.name }}"
+      when: __influxdb1x_platform_sensitive.private_key is truthy
+      ansible.builtin.copy:
+        # Key must end in newline or SSH will not accept it
+        content: "{{ __influxdb1x_platform_sensitive.private_key }}\n"
+        dest: "{{ __influxdb1x_platform.private_key_runtime_path }}"
+        mode: "0600"
+
+- name: Provision | Create InfluxDB 1.x cluster
+  ansible.builtin.include_tasks: "{{ role_path }}/tasks/create_cluster.yml"
+
+- name: Modify EC2 (Requires RW access to the AWS API)
+  vars:
+    __influxdb1x_target_platforms: >-
+      {{
+        __influxdb1x_platforms
+        | selectattr('enable_aws_config', 'eq', true)
+        | selectattr('security_group_type', 'eq', 'ephemeral')
+        | list
+      }}
+  block:
+    - name: Provision | AWS | Build ephemeral security groups
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/create_aws_sg.yml"
+
+    - name: Provision | AWS | Attach security groups to instances
+      loop: "{{ __influxdb1x_target_platforms }}"
+      loop_control:
+        loop_var: __influxdb1x_platform
+        label: "{{ __influxdb1x_platform.name }}"
+      vars:
+        __influxdb1x_platform_ec2_instance_data: >-
+          {{
+            __influxdb1x_platform_ec2_instances.results
+            | selectattr('__influxdb1x_platform.name', 'equalto', __influxdb1x_platform.name)
+            | map(attribute='instances')
+            | first
+          }}
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/modify_aws_instances.yml"
+
+- name: Provision | Check SSH connectivity
+  loop: "{{ __influxdb1x_platform_instance_configs }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_instance
+    label: "{{ __influxdb1x_platform_instance.ec2_instance_id }}"
+  ansible.builtin.wait_for:
+    host: "{{ __influxdb1x_platform_instance.ansible_host }}"
+    port: "{{ __influxdb1x_platform_instance.ansible_port }}"
+    search_regex: SSH
+    delay: 10
+    timeout: 320
+  async: 350
+  poll: 0
+  register: __influxdb1x_platform_ssh_connectivity_check
+  changed_when: false
+
+- name: Provision | 🦗 | Show SSH connectivity check results
+  ansible.builtin.debug:
+    var: __influxdb1x_platform_ssh_connectivity_check
+    verbosity: 1
+
+- name: Provision | SSH connectivity checks are complete
+  loop: "{{ __influxdb1x_platform_ssh_connectivity_check.results }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_async_job
+    label: "{{ __influxdb1x_platform_async_job.__influxdb1x_platform_instance.ec2_instance_id }}"
+  ansible.builtin.async_status:
+    jid: "{{ __influxdb1x_platform_async_job.ansible_job_id }}"
+  register: __influxdb1x_platform_ssh_connectivity_check_status
+  until: __influxdb1x_platform_ssh_connectivity_check_status.finished
+  retries: 40
+  delay: 5
+
+- name: Provision | Clean up async cache
+  loop: "{{ __influxdb1x_platform_ssh_connectivity_check.results }}"
+  loop_control:
+    loop_var: __influxdb1x_platform_async_job
+    label: "{{ __influxdb1x_platform_async_job.__influxdb1x_platform_instance.ec2_instance_id }}"
+  ansible.builtin.async_status:
+    jid: "{{ __influxdb1x_platform_async_job.ansible_job_id }}"
+    mode: cleanup
+
+# TODO: Add an actual check here instead of only waiting
+- name: Provision | Wait for boot process to finish
+  vars:
+    __influxdb1x_boot_timeout_max: >-
+      {{
+        __influxdb1x_platforms | map(attribute='boot_wait_seconds') | max
+      }}
+  when: __influxdb1x_boot_timeout_max | int > 0
+  ansible.builtin.pause:
+    seconds: "{{ __influxdb1x_boot_timeout_max | int }}"
+

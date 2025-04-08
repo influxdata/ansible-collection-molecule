@@ -1,0 +1,73 @@
+---
+# tasks file for potato_platform
+
+- name: Run platform configuration
+  block:
+    - name: Set internal run ID
+      # Needed at beginning of execution to ensure continuity between all resources, and must be a static fact
+      ansible.builtin.set_fact:
+        __influxdb1x_run_id: "{{ influxdb1x_platform_run_config.run_id }}"
+
+    - name: Discover external IP
+      when: influxdb1x_external_ip is not truthy
+      community.general.ipify_facts:
+
+    - name: 🐞 Show provided platform configuration
+      ansible.builtin.debug:
+        var: influxdb1x_platform_definition
+        verbosity: 1
+
+    - name: 🦋 Show full platform configuration
+      ansible.builtin.debug:
+        var: __influxdb1x_platforms
+        verbosity: 1
+
+    - name: Validate configuration data
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/validate_config.yml"
+
+    - name: Load InfluxDB cluster information
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/load_cluster_info.yml"
+
+    - name: Provision Platform
+      when: influxdb1x_platform_state == 'present'
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/provision.yml"
+
+    - name: Platform is not deployed
+      when: influxdb1x_platform_state == 'absent'
+      ansible.builtin.include_tasks: "{{ role_path }}/tasks/deprovision.yml"
+
+    - name: Export platform configuration
+      ansible.builtin.set_fact:
+        platform_exported_config: >-
+          {%- set __platform_instances = {} -%}
+          {%- for __platform in __platform_config -%}
+            {%- if __influxdb1x_platform_instance_configs is defined -%}
+              {%- set __platform_instance_config = __influxdb1x_platform_instance_configs
+                | selectattr('instance', 'equalto', __platform.name) -%}
+              {%- set __influxdb1x_platform = __influxdb1x_platforms
+                | selectattr('name', 'equalto', __platform.name) | first -%}
+              {%- for __influxdb1x_platform_instance in __influxdb1x_platform_instance_configs -%}
+                {%- set __platform_live_hostvars = {
+                    'ansible_host': __influxdb1x_platform_instance.ansible_host,
+                    'ansible_port': __influxdb1x_platform_instance.ansible_port,
+                    'ansible_user': __influxdb1x_platform_instance.ansible_user,
+                    'ansible_ssh_private_key_file': __influxdb1x_platform_instance.identity_file,
+                    'ec2_instance_id': __influxdb1x_platform_instance.ec2_instance_id,
+                    'hostname': __influxdb1x_platform_instance.hostname,
+                    'orchestrator_data': __influxdb1x_platform.orchestrator_data
+                  } -%}
+                {%- set _ = __platform_instances.update({
+                  __influxdb1x_platform_instance.hostname: {
+                    'hostvars': __platform.hostvars | default({})
+                      | combine(__platform_live_hostvars | default({})),
+                    'instance_config': __influxdb1x_platform_instance | default({})
+                  }
+                }) -%}
+              {%- endfor -%}
+            {%- endif -%}
+            {%- if __influxdb1x_platform_instance_configs is not defined -%}
+              {%- set __platform_instances = {} -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ __platform_instances }}
+

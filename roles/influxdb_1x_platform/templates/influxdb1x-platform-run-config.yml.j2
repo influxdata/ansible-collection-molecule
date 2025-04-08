@@ -1,0 +1,21 @@
+{%- set __platforms = [] -%}
+{%- for __platform in __influxdb1x_platforms -%}
+  {%- if __influxdb1x_platform_config_content.platforms is defined -%}
+    {%- set __platform_update_cfg = __influxdb1x_platform_config_content.platforms
+      | default([])
+      | selectattr('name', 'defined')
+      | selectattr('name', 'eq', __platform.name) -%}
+  {%- endif -%}
+  {%- set __platform_merged_config = __platform
+    | combine(__platform_update_cfg | default([]), recursive=True) -%}
+  {%- set _ = __platforms.append(__platform_merged_config) -%}
+{%- endfor -%}
+{%- set __influxdb1x_updated_cfg = influxdb1x_platform_run_config
+  | combine(__influxdb1x_platform_config_content | default([]), recursive=True)
+  | combine({
+    'platforms': __platforms
+    }, recursive=True) -%}
+---
+# This file is managed by Molecule. Do not edit.
+
+{{ __influxdb1x_updated_cfg | to_nice_yaml }}

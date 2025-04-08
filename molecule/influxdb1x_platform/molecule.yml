@@ -7,21 +7,14 @@ driver:
   options:
     managed: true
 platforms:
-  - name: potato-platform-test
-    type: potato
-    vpc_id: vpc-07bd460b98a3fb162
-    region: us-west-2
-    potato_address: https://potato.a.influxcloud.us
-    private_key_source_path: /home/syndr@styx.ultroncore.net/.ssh/cloud1-dev-potato
-    ssh_user: core
+  - name: influxdb1x-platform-defaults
+    type: influxdb_1x
     ssh_port: 22
-    influxdb_cluster_cfg:
+    cluster_config:
+      ami: ami-09e3a3301cb1777b9
       config_tag: 1.11.6.1-staging-pro
       init: latest
-      password: ku4kQePLTI6RBYtq0KuY
-      username: test-ci-admin
-    ignore_potato_machines_status: true
-    creation_timeout: 240
+      region: us-east-1
     hostvars: {}
 provisioner:
   name: ansible
@@ -39,6 +32,13 @@ provisioner:
       gathering: explicit
       playbook_vars_root: top
       verbosity: ${ANSIBLE_VERBOSITY:-0}
+  env:
+    ARA_API_CLIENT: ${ARA_API_CLIENT:-'http'}
+    ARA_API_SERVER: ${ARA_API_SERVER:-'http://localhost:8000'}
+    ARA_DEFAULT_LABELS: ${ARA_DEFAULT_LABELS:-'testing,molecule'}
+    # To use Ara with molecule:
+    #  export the ANSIBLE_CALLBACK_PLUGINS env var with the output of 'python3 -m ara.setup.callback_plugins'
+    ANSIBLE_CALLBACK_PLUGINS: ${ANSIBLE_CALLBACK_PLUGINS}
 scenario:
   create_sequence:
     - dependency
