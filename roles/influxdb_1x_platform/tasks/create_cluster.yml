@@ -121,18 +121,42 @@
       async: "{{ (__influxdb1x_platform.creation_timeout | int / 10) | int + 10 }}"
 
     - name: Set cluster creation end time
-      when: __influxdb1x_platform_cluster_creation_status is changed
+      when: __influxdb1x_platforms_watch_status | length > 0
       set_fact:
         __influxdb1x_platform_cluster_creation_end: "{{ lookup('pipe', 'date +%s')|int }}"
 
+    - name: Create | Load orchestrator cluster data
+      when: __influxdb1x_platforms_watch_timeout | length > 0
+      loop: "{{ __influxdb1x_platforms_watch_timeout }}"
+      loop_control:
+        loop_var: __influxdb1x_platform
+        label: "{{ __influxdb1x_platform.name }}"
+      vars:
+        __influxdb1x_platform_sensitive: >-
+          {{
+            __influxdb1x_platforms_sensitive | selectattr('name', 'eq', __influxdb1x_platform.name) | first
+          }}
+      ansible.builtin.uri:
+        url: "{{ __influxdb1x_orchestrator_api_url }}/clusters/{{ __influxdb1x_platform.cluster_id }}"
+        method: GET
+        user: "{{ __influxdb1x_platform.orchestrator_username }}"
+        password: "{{ __influxdb1x_platform_sensitive.orchestrator_password }}"
+        return_content: true
+      register: __influxdb1x_platform_timeout_cluster_status
+      until: __influxdb1x_platform_timeout_cluster_status.status == 200
+      retries: 12
+      delay: 5
+
+    - name: Create | 🐜 DEBUG | Show orchestrator cluster data
+      ansible.builtin.debug:
+        var: __influxdb1x_platform_timeout_cluster_status
+        verbosity: 1
+
     - name: Create | Wait for cluster creation timeout (ignore orchestrator reported status)
-      when:
-        - __influxdb1x_platforms_watch_timeout | length > 0
-        - __influxdb1x_platform_cluster_creation_status.json.machines_status | unique != [__influxdb1x_platform.desired_machines_status]
       vars:
         __influxdb1x_platform_max_creation_timeout: >-
           {{
-            __influxdb1x_platforms
+            __influxdb1x_platforms_watch_timeout
             | map(attribute='creation_timeout')
             | max
             | int
@@ -151,6 +175,20 @@
                 )
             ]|max
           }}
+        __influxdb1x_platforms_pending_timeout: >-
+          {%- set __influxdb1x_platforms_pending = [] -%}
+          {%- for __influxdb1x_platform in __influxdb1x_platforms_watch_timeout -%}
+            {%- set __influxdb1x_platform_orchestrator_data = __influxdb1x_platform_timeout_cluster_status.results
+              | selectattr('json.id', 'eq', __influxdb1x_platform.cluster_id)
+              | map(attribute='json')
+              | first -%}
+            {%- if __influxdb1x_platform_orchestrator_data.machines_status != __influxdb1x_platform.desired_machines_status -%}
+              {%- set _ = __influxdb1x_platforms_pending.append(__influxdb1x_platform) -%}
+            {%- endif -%}
+          {%- endfor -%}
+          {{ __influxdb1x_platforms_pending }}
+      when:
+        - __influxdb1x_platforms_pending_timeout | length > 0
       ansible.builtin.wait_for:
         timeout: "{{ __influxdb1x_platform_remaining_wait }}"
 
