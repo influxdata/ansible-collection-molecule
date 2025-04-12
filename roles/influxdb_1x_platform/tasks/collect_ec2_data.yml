@@ -65,6 +65,7 @@
           'ansible_user': __influxdb1x_platform.ssh_user,
           'identity_file': __influxdb1x_platform.private_key_runtime_path,
           'ec2_instance_id': __influxdb1x_platform_instance.instance_id,
+          'ec2_instance_type': __influxdb1x_platform_instance.instance_type,
           'tag_hostvars': __influxdb1x_tag_hostvars
         } ) -%}
       {%- endfor -%}
