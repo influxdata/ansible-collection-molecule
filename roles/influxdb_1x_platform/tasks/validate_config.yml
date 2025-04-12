@@ -53,6 +53,8 @@
       - __influxdb1x_platform_cfg.ssh_user is string and __influxdb1x_platform_cfg.ssh_user | length > 0
       - __influxdb1x_platform_cfg.ssh_port is integer and __influxdb1x_platform_cfg.ssh_port in range(1, 65536)
       - __influxdb1x_platform_cfg.enable_aws_config is boolean
+      - __influxdb1x_platform_cfg.security_group_type in ['ephemeral', 'persistent']
+      - __influxdb1x_platform_cfg.tag_hostvar_mappings is mapping
     fail_msg: "Platform configuration is invalid"
     success_msg: "Platform configuration is valid"
 

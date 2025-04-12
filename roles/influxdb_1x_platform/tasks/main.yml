@@ -59,7 +59,8 @@
                 {%- set _ = __platform_instances.update({
                   __influxdb1x_platform_instance.hostname: {
                     'hostvars': __platform.hostvars | default({})
-                      | combine(__platform_live_hostvars | default({})),
+                      | combine(__platform_live_hostvars | default({}))
+                      | combine(__influxdb1x_platform_instance.tag_hostvars | default({})),
                     'instance_config': __influxdb1x_platform_instance | default({})
                   }
                 }) -%}

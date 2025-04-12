@@ -4,7 +4,15 @@
 - name: Verify
   hosts: molecule
   tasks:
-    - name: "TODO: Add verify tasks"
-      ansible.builtin.debug:
-        msg: "IE: Check potato cluster status, etc."
+    - name: Verify | tag_hostvar_mapping vars
+      vars:
+        host_roles:
+          - consensus
+          - data
+      ansible.builtin.assert:
+        that:
+          - role is defined
+          - role is in host_roles
+        fail_msg: "Role {{ role | default('UNDEFINED') }} is not defined or not in the list of host roles: {{ host_roles }}"
+        success_msg: "Role is defined as {{ role }}"
 
