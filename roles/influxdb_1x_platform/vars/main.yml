@@ -46,9 +46,9 @@ __influxdb1x_platform_defaults:
   ## SSH Configuration ##
   #
   # The default SSH username for connecting to cluster hosts
-  ssh_user: "{{ lookup('env', 'MOLECULE_SSH_USER') | default('ansible') }}"
+  ssh_user: "{{ lookup('env', 'MOLECULE_SSH_USER') | default('ansible', true) }}"
   # The TCP port over which Ansible should connect to hosts
-  ssh_port: "{{ lookup('env', 'MOLECULE_SSH_PORT') | default(22) }}"
+  ssh_port: "{{ lookup('env', 'MOLECULE_SSH_PORT') | default(22, true) }}"
   # The path on the controller to the private key to use for SSH access
   #  - Superceeded by 'private_key' if set
   # NOTE: This key is managed outside of Molecule (IE: by the cluster orchestrator), and must be provided to Molecule
@@ -56,7 +56,7 @@ __influxdb1x_platform_defaults:
   # The path to the private SSH key used during runtime (copied from 'private_key_source_path')
   private_key_runtime_path: "{{ lookup('env', 'MOLECULE_EPHEMERAL_DIRECTORY') }}/id_rsa"
   # The (unencrypted) private key to use for SSH access -- superceedes 'private_key_source_path'
-  private_key: "{{ lookup('env', 'MOLECULE_SSH_PRIVATE_KEY') | default('') }}"
+  private_key: "{{ lookup('env', 'MOLECULE_SSH_PRIVATE_KEY') | default('', true) }}"
 
   ## AWS Configuration ##
   #
@@ -64,13 +64,13 @@ __influxdb1x_platform_defaults:
   #  - Requires RW access to the AWS API for EC2 instances and security groups
   enable_aws_config: true
   # AWS profile to use for authentication
-  aws_profile: "{{ lookup('env', 'AWS_PROFILE') | default(omit) }}"
+  aws_profile: "{{ lookup('env', 'AWS_PROFILE') | default('', true) }}"
   # AWS key ID to use for authentication (exclusive with 'aws_profile')
-  aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') | default(omit) }}"
+  aws_access_key_id: "{{ lookup('env', 'AWS_ACCESS_KEY_ID') | default('', true) }}"
   # AWS secret key to use for authentication (exclusive with 'aws_profile')
-  aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') | default(omit) }}"
+  aws_secret_access_key: "{{ lookup('env', 'AWS_SECRET_ACCESS_KEY') | default('', true) }}"
   # AWS session token to use for authentication (optional)
-  aws_session_token: "{{ lookup('env', 'AWS_SESSION_TOKEN') | default(omit) }}"
+  aws_session_token: "{{ lookup('env', 'AWS_SESSION_TOKEN') | default('', true) }}"
   # Name of the security group used for connections to the instance
   security_group_name: "molecule-{{ influxdb1x_platform_run_config.run_id }}"
   # Whether the security group should be created (ephemeral) or already exists (persistent)

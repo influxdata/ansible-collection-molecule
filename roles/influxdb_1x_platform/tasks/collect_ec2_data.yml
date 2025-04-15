@@ -53,9 +53,11 @@
       {%- for __influxdb1x_platform_instance in __influxdb1x_platform_instance_result.instances -%}
         {%- set __influxdb1x_tag_hostvars = {} -%}
         {%- for __influxdb1x_hostvar_mapping in __influxdb1x_platform.tag_hostvar_mappings | default({}) | dict2items -%}
-          {%- set _ = __influxdb1x_tag_hostvars.update({
-            __influxdb1x_hostvar_mapping.value: __influxdb1x_platform_instance.tags[__influxdb1x_hostvar_mapping.key]
-          }) -%}
+          {%- if __influxdb1x_platform_instance.tags[__influxdb1x_hostvar_mapping.key] is defined -%}
+            {%- set _ = __influxdb1x_tag_hostvars.update({
+              __influxdb1x_hostvar_mapping.value: __influxdb1x_platform_instance.tags[__influxdb1x_hostvar_mapping.key]
+            }) -%}
+          {%- endif -%}
         {%- endfor -%}
         {%- set _ = __influxdb1x_platform_instances.append({
           'instance': __influxdb1x_platform_instance_result.__influxdb1x_platform.name,

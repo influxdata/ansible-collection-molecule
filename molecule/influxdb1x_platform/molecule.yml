@@ -9,13 +9,15 @@ driver:
 platforms:
   - name: influxdb1x-platform-defaults
     type: influxdb_1x
-    ssh_port: 22
     cluster_config:
       ami: ami-09e3a3301cb1777b9
       config_tag: 1.11.6.1-staging-pro
       init: latest
       region: us-east-1
     hostvars: {}
+    tag_hostvar_mappings:
+      Type: role
+      nonexistent: nonexistent
   - name: influxdb1x-platform-timeout
     type: influxdb_1x
     ssh_port: 22
