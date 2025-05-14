@@ -62,7 +62,7 @@
         {%- set _ = __influxdb1x_platform_instances.append({
           'instance': __influxdb1x_platform_instance_result.__influxdb1x_platform.name,
           'hostname': __influxdb1x_platform_instance.tags.Name | default('unnamed'),
-          'ansible_host': __influxdb1x_platform_instance.public_ip_address,
+          'ansible_host': __influxdb1x_platform_instance.public_ip_address | default(''),
           'ansible_port': __influxdb1x_platform.ssh_port,
           'ansible_user': __influxdb1x_platform.ssh_user,
           'identity_file': __influxdb1x_platform.private_key_runtime_path,
