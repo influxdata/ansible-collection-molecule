@@ -71,7 +71,7 @@
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/modify_aws_instances.yml"
 
 - name: Provision | Check SSH connectivity
-  loop: "{{ __influxdb1x_platform_instance_configs }}"
+  loop: "{{ __influxdb1x_platform_instance_configs | selectattr('ansible_host', 'truthy') | list }}"
   loop_control:
     loop_var: __influxdb1x_platform_instance
     label: "{{ __influxdb1x_platform_instance.ec2_instance_id }}"
