@@ -38,8 +38,7 @@
         + [__influxdb1x_platform.ephemeral_security_group_id])
         | unique
       }}
-    # We always want test ec2 hosts to be running
-    state: running
+    state: "{{ influxdb1x_platform_desired_ec2_instance_state | default(__influxdb1x_platform.aws_ec2_desired_instance_state, true) }}"
   register: __influxdb1x_platform_ec2_instance_update_async
   async: 60
   poll: 0

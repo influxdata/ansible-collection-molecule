@@ -75,6 +75,10 @@ __influxdb1x_platform_defaults:
   security_group_name: "molecule-{{ influxdb1x_platform_run_config.run_id }}"
   # Whether the security group should be created (ephemeral) or already exists (persistent)
   security_group_type: ephemeral
+  # State of the EC2 instances associated with this cluster
+  #  - See https://docs.ansible.com/ansible/latest/collections/amazon/aws/ec2_instance_module.html#parameter-state
+  #    for more information
+  aws_ec2_desired_instance_state: running
   # Description for the ephemeral security group
   ephemeral_security_group_description: Ephemeral security group for Molecule instances
   # Ingress and egress rules for the ephemeral security group
