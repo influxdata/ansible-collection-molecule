@@ -192,6 +192,16 @@
       ansible.builtin.wait_for:
         timeout: "{{ __influxdb1x_platform_remaining_wait }}"
 
+- name: Create | Wait for boot process to finish
+  vars:
+    __influxdb1x_boot_timeout_max: >-
+      {{
+        __influxdb1x_platforms | map(attribute='boot_wait_seconds') | max
+      }}
+  when: __influxdb1x_boot_timeout_max | int > 0
+  ansible.builtin.pause:
+    seconds: "{{ __influxdb1x_boot_timeout_max | int }}"
+
 - name: Create | Collect cluster instance EC2 data
   ansible.builtin.include_tasks: "{{ role_path }}/tasks/collect_ec2_data.yml"
 

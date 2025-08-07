@@ -111,15 +111,3 @@
   ansible.builtin.async_status:
     jid: "{{ __influxdb1x_platform_async_job.ansible_job_id }}"
     mode: cleanup
-
-# TODO: Add an actual check here instead of only waiting
-- name: Provision | Wait for boot process to finish
-  vars:
-    __influxdb1x_boot_timeout_max: >-
-      {{
-        __influxdb1x_platforms | map(attribute='boot_wait_seconds') | max
-      }}
-  when: __influxdb1x_boot_timeout_max | int > 0
-  ansible.builtin.pause:
-    seconds: "{{ __influxdb1x_boot_timeout_max | int }}"
-
