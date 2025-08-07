@@ -70,44 +70,47 @@
           }}
       ansible.builtin.include_tasks: "{{ role_path }}/tasks/modify_aws_instances.yml"
 
-- name: Provision | Check SSH connectivity
-  loop: "{{ __influxdb1x_platform_instance_configs | selectattr('ansible_host', 'truthy') | list }}"
-  loop_control:
-    loop_var: __influxdb1x_platform_instance
-    label: "{{ __influxdb1x_platform_instance.ec2_instance_id }}"
-  ansible.builtin.wait_for:
-    host: "{{ __influxdb1x_platform_instance.ansible_host }}"
-    port: "{{ __influxdb1x_platform_instance.ansible_port }}"
-    search_regex: SSH
-    delay: 10
-    timeout: 320
-  async: 350
-  poll: 0
-  register: __influxdb1x_platform_ssh_connectivity_check
-  changed_when: false
+- name: Check for connectivity on SSH port
+  when: influxdb1x_platform_check_ssh_connectivity | bool
+  block:
+    - name: Provision | Check SSH connectivity
+      loop: "{{ __influxdb1x_platform_instance_configs | selectattr('ansible_host', 'truthy') | list }}"
+      loop_control:
+        loop_var: __influxdb1x_platform_instance
+        label: "{{ __influxdb1x_platform_instance.ec2_instance_id }}"
+      ansible.builtin.wait_for:
+        host: "{{ __influxdb1x_platform_instance.ansible_host }}"
+        port: "{{ __influxdb1x_platform_instance.ansible_port }}"
+        search_regex: SSH
+        delay: 10
+        timeout: 320
+      async: 350
+      poll: 0
+      register: __influxdb1x_platform_ssh_connectivity_check
+      changed_when: false
 
-- name: Provision | 🦗 | Show SSH connectivity check results
-  ansible.builtin.debug:
-    var: __influxdb1x_platform_ssh_connectivity_check
-    verbosity: 1
+    - name: Provision | 🦗 | Show SSH connectivity check results
+      ansible.builtin.debug:
+        var: __influxdb1x_platform_ssh_connectivity_check
+        verbosity: 1
 
-- name: Provision | SSH connectivity checks are complete
-  loop: "{{ __influxdb1x_platform_ssh_connectivity_check.results }}"
-  loop_control:
-    loop_var: __influxdb1x_platform_async_job
-    label: "{{ __influxdb1x_platform_async_job.__influxdb1x_platform_instance.ec2_instance_id }}"
-  ansible.builtin.async_status:
-    jid: "{{ __influxdb1x_platform_async_job.ansible_job_id }}"
-  register: __influxdb1x_platform_ssh_connectivity_check_status
-  until: __influxdb1x_platform_ssh_connectivity_check_status.finished
-  retries: 40
-  delay: 5
+    - name: Provision | SSH connectivity checks are complete
+      loop: "{{ __influxdb1x_platform_ssh_connectivity_check.results }}"
+      loop_control:
+        loop_var: __influxdb1x_platform_async_job
+        label: "{{ __influxdb1x_platform_async_job.__influxdb1x_platform_instance.ec2_instance_id }}"
+      ansible.builtin.async_status:
+        jid: "{{ __influxdb1x_platform_async_job.ansible_job_id }}"
+      register: __influxdb1x_platform_ssh_connectivity_check_status
+      until: __influxdb1x_platform_ssh_connectivity_check_status.finished
+      retries: 40
+      delay: 5
 
-- name: Provision | Clean up async cache
-  loop: "{{ __influxdb1x_platform_ssh_connectivity_check.results }}"
-  loop_control:
-    loop_var: __influxdb1x_platform_async_job
-    label: "{{ __influxdb1x_platform_async_job.__influxdb1x_platform_instance.ec2_instance_id }}"
-  ansible.builtin.async_status:
-    jid: "{{ __influxdb1x_platform_async_job.ansible_job_id }}"
-    mode: cleanup
+    - name: Provision | Clean up async cache
+      loop: "{{ __influxdb1x_platform_ssh_connectivity_check.results }}"
+      loop_control:
+        loop_var: __influxdb1x_platform_async_job
+        label: "{{ __influxdb1x_platform_async_job.__influxdb1x_platform_instance.ec2_instance_id }}"
+      ansible.builtin.async_status:
+        jid: "{{ __influxdb1x_platform_async_job.ansible_job_id }}"
+        mode: cleanup

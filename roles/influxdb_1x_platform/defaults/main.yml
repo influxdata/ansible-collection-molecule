@@ -18,6 +18,9 @@ influxdb1x_platform_desired_ec2_instance_state:
 # Skip waiting for the platform to be ready
 influxdb1x_platform_skip_wait: false
 
+# Verify connectivity on the configured SSH port
+influxdb1x_platform_check_ssh_connectivity: true
+
 # Molecule platform configuration (list of dictionaries)
 influxdb1x_platform_definition: >-
   {{

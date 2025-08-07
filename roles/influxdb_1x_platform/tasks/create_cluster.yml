@@ -103,6 +103,8 @@
       loop_control:
         loop_var: __influxdb1x_platform
         label: "{{ __influxdb1x_platform.name }}"
+      when:
+        - influxdb1x_platform_skip_wait | bool is false
       vars:
         __influxdb1x_platform_sensitive: >-
           {{
@@ -153,6 +155,9 @@
         verbosity: 1
 
     - name: Create | Wait for cluster creation timeout (ignore orchestrator reported status)
+      when:
+        - __influxdb1x_platforms_pending_timeout | length > 0
+        - influxdb1x_platform_skip_wait | bool is false
       vars:
         __influxdb1x_platform_max_creation_timeout: >-
           {{
@@ -187,9 +192,6 @@
             {%- endif -%}
           {%- endfor -%}
           {{ __influxdb1x_platforms_pending }}
-      when:
-        - __influxdb1x_platforms_pending_timeout | length > 0
-        - influxdb1x_platform_skip_wait | bool is false
       ansible.builtin.wait_for:
         timeout: "{{ __influxdb1x_platform_remaining_wait }}"
 
