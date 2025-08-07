@@ -11,6 +11,13 @@
 # Whether this platform should be deployed (present/absent)
 influxdb1x_platform_state: "{{ platform_target_state | default('present') }}"
 
+# Ensure that EC2 instances are set to this state
+#  - Leave empty for default behavior
+influxdb1x_platform_desired_ec2_instance_state:
+
+# Skip waiting for the platform to be ready
+influxdb1x_platform_skip_wait: false
+
 # Molecule platform configuration (list of dictionaries)
 influxdb1x_platform_definition: >-
   {{

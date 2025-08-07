@@ -189,6 +189,7 @@
           {{ __influxdb1x_platforms_pending }}
       when:
         - __influxdb1x_platforms_pending_timeout | length > 0
+        - influxdb1x_platform_skip_wait | bool is false
       ansible.builtin.wait_for:
         timeout: "{{ __influxdb1x_platform_remaining_wait }}"
 
@@ -198,7 +199,9 @@
       {{
         __influxdb1x_platforms | map(attribute='boot_wait_seconds') | max
       }}
-  when: __influxdb1x_boot_timeout_max | int > 0
+  when:
+    - __influxdb1x_boot_timeout_max | int > 0
+    - influxdb1x_platform_skip_wait | bool is false
   ansible.builtin.pause:
     seconds: "{{ __influxdb1x_boot_timeout_max | int }}"
 
