@@ -22,12 +22,10 @@
     loop_var: __platform_type
     label: "{{ __platform_type }}"
   vars:
+    __platform_is_fq: "{{ __platform_type | regex_search('^\\w+\\.\\w+\\.\\w+$') is truthy }}"
     __platform_collection_name: >-
-      {{
-        __platform_type.split('.')[:-1] | join('.')
-        if __platform_type | regex_search('^\w+\.\w+\.\w+$') is truthy
-        else
-        ansible_collection_name
-      }}
+      {{ __platform_type.split('.')[:-1] | join('.') if __platform_is_fq else ansible_collection_name }}
+    __platform_type_short: >-
+      {{ __platform_type.split('.')[-1] if __platform_is_fq else __platform_type }}
   ansible.builtin.include_role:
-    name: "{{ __platform_collection_name }}.{{ __platform_type }}_platform"
+    name: "{{ __platform_collection_name }}.{{ __platform_type_short }}_platform"
