@@ -22,7 +22,7 @@
         msg: "{{ result.stdout }}"
 
     - name: Systems likely to have python
-      when: not result.stdout | regex_search('coreos')
+      when: result.stdout is not search('coreos')
       block:
         - name: Load system facts
           ansible.builtin.setup:
@@ -30,7 +30,7 @@
               - ansible_service_mgr
 
         - name: Check on Systemd
-          when: ansible_service_mgr == 'systemd'
+          when: ansible_facts.service_mgr == 'systemd'
           block:
             - name: Wait for systemd to complete initialization.
               ansible.builtin.command: systemctl is-system-running

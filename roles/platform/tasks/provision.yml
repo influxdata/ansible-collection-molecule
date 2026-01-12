@@ -17,9 +17,15 @@
     __platform_run_count: "{{ __platform_run_count | default(0) | int + 1 }}"
 
 - name: Configure {{ __platform_config | length }} Molecule platform(s)
+  loop: "{{ __platform_config | map(attribute='type') | unique | list }}"
+  loop_control:
+    loop_var: __platform_type
+    label: "{{ __platform_type }}"
   vars:
-    # WARNING: This assumes all platforms are of the same type
-    __platform_type: "{{ __platform_config | map(attribute='type') | first }}"
+    __platform_is_fq: "{{ __platform_type | regex_search('^\\w+\\.\\w+\\.\\w+$') is truthy }}"
+    __platform_collection_name: >-
+      {{ __platform_type.split('.')[:-1] | join('.') if __platform_is_fq else ansible_collection_name }}
+    __platform_type_short: >-
+      {{ __platform_type.split('.')[-1] if __platform_is_fq else __platform_type }}
   ansible.builtin.include_role:
-    name: "{{ ansible_collection_name }}.{{ __platform_type }}_platform"
-
+    name: "{{ __platform_collection_name }}.{{ __platform_type_short }}_platform"

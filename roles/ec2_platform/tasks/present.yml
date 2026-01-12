@@ -54,8 +54,8 @@
     label: "{{ __ec2_platform.name }}"
   ansible.builtin.assert:
     that:
-      - __ec2_platform.image or ((__ec2_platform_ami_info.results | selectattr('__ec2_platform.name', 'equalto', __ec2_platform.name)).images | length > 0)
-      - __ec2_platform.vpc_id or ((__ec2_platform_subnet_info.results | selectattr('__ec2_platform.name', 'equalto', __ec2_platform.name)).subnets | length > 0)
+      - (__ec2_platform.image is truthy) or ((__ec2_platform_ami_info.results | selectattr('__ec2_platform.name', 'equalto', __ec2_platform.name) | first).images | length > 0)
+      - (__ec2_platform.vpc_id is truthy) or ((__ec2_platform_subnet_info.results | selectattr('__ec2_platform.name', 'equalto', __ec2_platform.name) | first).subnets | length > 0)
     quiet: true
 
 - name: Show generated keypairs
