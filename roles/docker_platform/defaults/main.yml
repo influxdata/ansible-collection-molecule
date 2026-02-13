@@ -134,8 +134,8 @@ docker_platform_container_defaults:
 docker_platform_hostvars: {}
 
 # Maximum number of restart attempts for containers that fail to start
-docker_platform_create_retries: 3
+docker_platform_create_retries: 5
 
 # Seconds to wait after restarting a container before verifying it is running
-docker_platform_create_retry_delay: 5
+docker_platform_create_retry_delay: 10
 
