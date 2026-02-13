@@ -16,9 +16,9 @@
     cmd: "docker restart {{ __docker_platform_restart_name }}"
   changed_when: true
 
-- name: "Create Platform | Restart attempt {{ __docker_platform_retry_attempt }} - Waiting {{ docker_platform_create_retry_delay }}s for containers to initialize"
+- name: "Create Platform | Restart attempt {{ __docker_platform_retry_attempt }} - Waiting {{ docker_platform_create_retry_delay | int * __docker_platform_retry_attempt | int }}s for containers to initialize"
   ansible.builtin.wait_for:
-    timeout: "{{ docker_platform_create_retry_delay }}"
+    timeout: "{{ docker_platform_create_retry_delay | int * __docker_platform_retry_attempt | int }}"
 
 - name: "Create Platform | Restart attempt {{ __docker_platform_retry_attempt }} - Verifying container health"
   loop: "{{ __docker_platform_failed_names }}"
