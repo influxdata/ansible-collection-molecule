@@ -112,6 +112,10 @@
     vpc_id: "{{ __ec2_platform.vpc_id or __ec2_platform_subnet_info.subnets[0] }}"
     name: "{{ __ec2_platform.security_group_name }}"
     state: absent
+  register: __ec2_sg_destroy_result
+  retries: 10
+  delay: 5
+  until: __ec2_sg_destroy_result is success
 
 - name: EC2 Deprovision | Destroy ephemeral keys (if needed)
   loop: "{{ ec2_platforms | selectattr('key_inject_method', 'equalto', 'ec2') }}"
