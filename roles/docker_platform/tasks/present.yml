@@ -132,31 +132,45 @@
     jid: "{{ __docker_platform_cache_cleanup.__docker_platform_create_result.ansible_job_id }}"
     mode: cleanup
 
-- name: Create Platform | Collect failed container logs
-  loop: "{{ __docker_platform_create_results.results | selectattr('container.State.Running', 'equalto', False) }}"
+- name: Create Platform | Identify non-running containers
+  ansible.builtin.set_fact:
+    __docker_platform_failed_names: >-
+      {{
+        __docker_platform_create_results.results
+        | selectattr('container.State.Running', 'equalto', False)
+        | map(attribute='__docker_platform_create_result')
+        | map(attribute='__docker_platform_instance')
+        | map(attribute='name')
+        | list
+      }}
+
+- name: Create Platform | Retry non-running containers
+  ansible.builtin.include_tasks:
+    file: "{{ role_path }}/tasks/restart_containers.yml"
+  loop: "{{ range(1, docker_platform_create_retries + 1) | list }}"
   loop_control:
-    loop_var: __docker_platform_failed_container
-    label: "{{ __docker_platform_failed_container_name }}"
-  vars:
-    __docker_platform_failed_container_name: "{{ __docker_platform_failed_container.__docker_platform_create_result.__docker_platform_instance.name }}"
+    loop_var: __docker_platform_retry_attempt
+  when: __docker_platform_failed_names | length > 0
+
+- name: Create Platform | Collect failed container logs
+  when: __docker_platform_failed_names | length > 0
+  loop: "{{ __docker_platform_failed_names }}"
+  loop_control:
+    loop_var: __docker_platform_failed_name
+    label: "{{ __docker_platform_failed_name }}"
   ansible.builtin.command:
-    cmd: docker logs {{ __docker_platform_failed_container_name }}
+    cmd: "docker logs {{ __docker_platform_failed_name }}"
   register: __docker_platform_container_faillogs
   changed_when: false
 
 - name: Create Platform | Container creation failed
-  loop: "{{ __docker_platform_container_faillogs.results }}"
-  loop_control:
-    loop_var: __docker_platform_logfile_cmd
-    label: "{{ __docker_platform_failed_container_name }}"
-  vars:
-    __docker_platform_failed_container_name: >-
-      {{
-        __docker_platform_logfile_cmd.__docker_platform_failed_container.__docker_platform_create_result.__docker_platform_instance.name
-      }}
+  when: __docker_platform_failed_names | length > 0
   ansible.builtin.fail:
     msg: |
-      Return Code: {{ __docker_platform_logfile_cmd.__docker_platform_failed_container.container.State.ExitCode }}
-      Stdout: {{ __docker_platform_logfile_cmd.stdout }}
-      Stderr: {{ __docker_platform_logfile_cmd.stderr }}
+      {{ __docker_platform_failed_names | length }} container(s) failed to start after {{ docker_platform_create_retries }} restart attempt(s):
+      {% for result in __docker_platform_container_faillogs.results %}
+      Container: {{ result.__docker_platform_failed_name }}
+        Stdout: {{ result.stdout }}
+        Stderr: {{ result.stderr }}
+      {% endfor %}
 

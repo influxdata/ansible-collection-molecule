@@ -132,13 +132,13 @@
                 pkg:
                   - ansible
                   - acl
-          when: ansible_distribution | lower == 'ubuntu'
+          when: ansible_facts.distribution | lower == 'ubuntu'
 
         - name: Install packages (RHEL Family)
           ansible.builtin.package:
             name:
               - ansible-core
-          when: ansible_distribution_file_variety | lower == 'redhat'
+          when: ansible_facts.distribution_file_variety | lower == 'redhat'
 
     - name: Verify application availibility
       ansible.builtin.command:

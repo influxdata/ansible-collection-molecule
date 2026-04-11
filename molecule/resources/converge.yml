@@ -28,7 +28,7 @@
 
     - name: Verify kernel type
       ansible.builtin.assert:
-        that: result.stdout | regex_search("^Linux")
+        that: result.stdout is search("^Linux")
 
     - name: Do preparation
       block:
@@ -47,7 +47,7 @@
         - name: Test local fact exists
           ansible.builtin.assert:
             that:
-              - ansible_local.molecule.test_prepare_fact is defined
+              - ansible_facts.ansible_local.molecule.test_prepare_fact is defined
             fail_msg: Something went wrong with storing local facts!
             success_msg: Local fact exists
 

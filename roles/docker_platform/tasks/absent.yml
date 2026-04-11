@@ -33,6 +33,7 @@
   until: __docker_platform_remove_results.finished
   retries: 12
   delay: 5
+  ignore_errors: true
 
 - name: Destroy Platform | Print removal job results
   ansible.builtin.debug:
@@ -48,5 +49,40 @@
     jid: "{{ __docker_platform_cache_cleanup.__docker_platform_remove_result.ansible_job_id }}"
     mode: cleanup
 
-# TODO: Remove instances from molecule config
+- name: Destroy Platform | Identify containers that failed to remove
+  ansible.builtin.set_fact:
+    __docker_platform_remove_failed: >-
+      {{
+        __docker_platform_remove_results.results
+        | selectattr('failed', 'equalto', true)
+        | map(attribute='__docker_platform_remove_result')
+        | map(attribute='__docker_platform_instance')
+        | map(attribute='name')
+        | list
+      }}
 
+- name: Destroy Platform | Force-removing stuck containers
+  when: __docker_platform_remove_failed | length > 0
+  loop: "{{ __docker_platform_remove_failed }}"
+  loop_control:
+    loop_var: __docker_platform_force_remove_name
+    label: "{{ __docker_platform_force_remove_name }}"
+  ansible.builtin.command:
+    cmd: "docker rm -f {{ __docker_platform_force_remove_name }}"
+  register: __docker_platform_force_remove_results
+  changed_when: true
+  failed_when: false
+
+- name: Destroy Platform | Verify containers removed
+  when: __docker_platform_remove_failed | length > 0
+  loop: "{{ __docker_platform_remove_failed }}"
+  loop_control:
+    loop_var: __docker_platform_verify_remove_name
+    label: "{{ __docker_platform_verify_remove_name }}"
+  ansible.builtin.command:
+    cmd: "docker inspect {{ __docker_platform_verify_remove_name }}"
+  register: __docker_platform_verify_remove_results
+  changed_when: false
+  failed_when: __docker_platform_verify_remove_results.rc == 0
+
+# TODO: Remove instances from molecule config
