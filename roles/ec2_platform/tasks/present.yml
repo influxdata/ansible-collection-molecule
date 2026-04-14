@@ -191,6 +191,7 @@
       instance: "{{ __ec2_platform_instance_definition.name }}"
       address: "{{ __ec2_platform_instance_definition.assign_public_ip
         | ternary(__ec2_platform_instance_data.public_ip_address, __ec2_platform_instance_data.private_ip_address) }}"
+      ec2_private_ip: "{{ __ec2_platform_instance_data.private_ip_address }}"
       user: "{{ __ec2_platform_instance_definition.ssh_user }}"
       port: "{{ __ec2_platform_instance_definition.ssh_port }}"
       identity_file: "{{ __ec2_platform_instance_definition.private_key_path }}"

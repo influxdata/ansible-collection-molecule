@@ -40,6 +40,7 @@
               'ansible_user': __platform_instance_config.user,
               'ansible_ssh_private_key_file': __platform_instance_config.identity_file,
               'ec2_instance_id': __platform_instance_config.instance_id,
+              'ec2_private_ip': __platform_instance_config.ec2_private_ip,
             } -%}
           {%- endif -%}
         {%- set _ = __platform_instances.update({
