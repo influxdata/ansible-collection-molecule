@@ -9,6 +9,11 @@ on:
   pull_request:
     branches:
       - main
+      - devel
+  # Molecule is tracked unpinned; a weekly run surfaces breaking upstream releases
+  # here rather than in a consumer's unrelated pull request.
+  schedule:
+    - cron: '0 6 * * 1'
   workflow_dispatch:
     inputs:
       runner-type:

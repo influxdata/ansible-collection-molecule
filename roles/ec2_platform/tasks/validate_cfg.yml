@@ -35,7 +35,7 @@
       - __ec2_platform_item.ssh_user is string and __ec2_platform_item.ssh_user | length > 0
       - __ec2_platform_item.ssh_port is integer and __ec2_platform_item.ssh_port in range(1, 65536)
       - __ec2_platform_item.tags is mapping
-      - __ec2_platform_item.volumes is sequence
+      - __ec2_platform_item.ebs_volumes is sequence
       - __ec2_platform_item.vpc_id is string
       - __ec2_platform_item.vpc_subnet_id is string and __ec2_platform_item.vpc_subnet_id | length > 0
     fail_msg: "Invalid EC2 platform configuration provided!"
