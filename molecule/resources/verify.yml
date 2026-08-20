@@ -26,6 +26,8 @@
             __ebs_expected_size: "{{ 2 * 1024 * 1024 * 1024 }}"
           ansible.builtin.assert:
             that:
-              - __ebs_expected_size in (__ebs_block_devices.stdout_lines | map('trim') | list)
-            fail_msg: "Declared ebs_volumes disk not attached! EBS block device mapping is not reaching the instance."
+              - __ebs_expected_size | int in (__ebs_block_devices.stdout_lines | map('int') | list)
+            fail_msg: >-
+              Declared ebs_volumes disk not attached! Expected a device of
+              {{ __ebs_expected_size }} bytes, saw {{ __ebs_block_devices.stdout_lines }}.
             success_msg: "Declared ebs_volumes disk found!"

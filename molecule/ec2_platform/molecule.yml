@@ -17,7 +17,6 @@ platforms:
     ssh_user: molecule_runner
     ebs_volumes:
       - device_name: /dev/xvdb
-        virtual_name: molecule-ec2-platform-disk1
         ebs:
           volume_type: gp3
           volume_size: 2
