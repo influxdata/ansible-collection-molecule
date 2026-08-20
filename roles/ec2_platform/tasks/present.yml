@@ -141,7 +141,7 @@
     security_groups: "{{ __ec2_platform_security_groups }}"
     network:
       assign_public_ip: "{{ __ec2_platform.assign_public_ip }}"
-    volumes: "{{ __ec2_platform.volumes }}"
+    volumes: "{{ __ec2_platform.ebs_volumes }}"
     key_name: "{{ (__ec2_platform.key_inject_method == 'ec2') | ternary(__ec2_platform.key_name, omit) }}"
     tags: "{{ __ec2_platform_tags }}"
     user_data: "{{ __ec2_platform_user_data }}"

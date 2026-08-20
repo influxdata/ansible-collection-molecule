@@ -37,7 +37,9 @@ Optional configuration options are:
 - `image_owner`: The owner of the image to use for the instance (string)
 - `security_groups`: A list of security group names to apply to the instance (list of strings)
 - `tags`: A dictionary of tags to apply to the instance (dictionary)
-- `volumes`: A list of volumes to attach to the instance (list of dicts)
+- `ebs_volumes`: A list of EBS block device mappings to attach to the instance (list of dicts)
+- `volumes`: Deprecated alias for `ebs_volumes`. Molecule >= 26.8.0 validates `platforms[].volumes`
+  as a list of strings (Docker bind mounts), so new configuration should use `ebs_volumes`.
 
 Requirements
 ------------
