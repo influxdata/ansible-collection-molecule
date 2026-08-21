@@ -15,6 +15,12 @@ platforms:
     vpc_subnet_id: subnet-0725b4ef4d069f1bf
     instance_type: t3.small
     ssh_user: molecule_runner
+    ebs_volumes:
+      - device_name: /dev/xvdb
+        ebs:
+          volume_type: gp3
+          volume_size: 2
+          delete_on_termination: true
     hostvars:
       test_hostvar: test
   - name: ec2-unbuntu2204

@@ -3,6 +3,6 @@
 ansible-core==2.20.1
 ansible-lint
 requests>=2.32.3
-molecule==25.12.0
+molecule>=25.12.0
 boto3[crt]
 

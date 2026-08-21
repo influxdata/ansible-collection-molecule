@@ -141,7 +141,7 @@
     security_groups: "{{ __ec2_platform_security_groups }}"
     network:
       assign_public_ip: "{{ __ec2_platform.assign_public_ip }}"
-    volumes: "{{ __ec2_platform.volumes }}"
+    volumes: "{{ __ec2_platform.ebs_volumes }}"
     key_name: "{{ (__ec2_platform.key_inject_method == 'ec2') | ternary(__ec2_platform.key_name, omit) }}"
     tags: "{{ __ec2_platform_tags }}"
     user_data: "{{ __ec2_platform_user_data }}"
@@ -191,6 +191,7 @@
       instance: "{{ __ec2_platform_instance_definition.name }}"
       address: "{{ __ec2_platform_instance_definition.assign_public_ip
         | ternary(__ec2_platform_instance_data.public_ip_address, __ec2_platform_instance_data.private_ip_address) }}"
+      ec2_private_ip: "{{ __ec2_platform_instance_data.private_ip_address }}"
       user: "{{ __ec2_platform_instance_definition.ssh_user }}"
       port: "{{ __ec2_platform_instance_definition.ssh_port }}"
       identity_file: "{{ __ec2_platform_instance_definition.private_key_path }}"

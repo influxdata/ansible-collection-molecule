@@ -11,10 +11,16 @@ ec2_platform_state: "{{ platform_target_state | default('present') }}"
 ec2_platform_definition: "{{ [platform_target_config] if platform_target_config is defined else (molecule_yml.platforms | default([])) }}"
 
 # Merge the defaults with any options provided to this role
+#
+# `volumes` is a deprecated alias for `ebs_volumes`, coalesced here so consumers
+# read one key. Molecule >= 26.8.0 validates platforms[].volumes as a list of
+# strings (Docker bind mounts), so EBS block device mappings need a key that
+# Molecule does not define.
 ec2_platforms: >-
   {%- set __platforms = [] -%}
   {%- for __platform in ec2_platform_definition -%}
     {%- set __platform = ec2_platform_defaults | combine(__platform) -%}
+    {%- set _ = __platform.update({'ebs_volumes': __platform.ebs_volumes or __platform.volumes}) -%}
     {%- set _ = __platforms.append(__platform) -%}
   {%- endfor -%}
   {{ __platforms }}
@@ -76,6 +82,7 @@ ec2_platform_defaults:
   ssh_user: "{{ ec2_platform_default_ssh_user }}"
   ssh_port: "{{ ec2_platform_default_ssh_port }}"
   cloud_config: {}
+  ebs_volumes: []
   image: ""
   image_name: ""
   image_owner: [self]

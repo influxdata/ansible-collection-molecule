@@ -11,3 +11,23 @@
         fail_msg: "Custom hostvar not found! Possible issue with storing user-defined hostvars!"
         success_msg: "Custom hostvar found!"
 
+    # Guarded by host: this playbook is shared with the docker `default` scenario,
+    # which attaches no EBS volumes.
+    - name: Test ebs_volumes disk is attached
+      when: inventory_hostname == 'ec2-rockylinux9'
+      block:
+        - name: Read attached block devices
+          ansible.builtin.command: lsblk --bytes --nodeps --noheadings --output SIZE
+          register: __ebs_block_devices
+          changed_when: false
+
+        - name: Test the declared volume is present
+          vars:
+            __ebs_expected_size: "{{ 2 * 1024 * 1024 * 1024 }}"
+          ansible.builtin.assert:
+            that:
+              - __ebs_expected_size | int in (__ebs_block_devices.stdout_lines | map('int') | list)
+            fail_msg: >-
+              Declared ebs_volumes disk not attached! Expected a device of
+              {{ __ebs_expected_size }} bytes, saw {{ __ebs_block_devices.stdout_lines }}.
+            success_msg: "Declared ebs_volumes disk found!"
