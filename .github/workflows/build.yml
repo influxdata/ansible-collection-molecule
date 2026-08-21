@@ -43,10 +43,10 @@ jobs:
           - ec2_platform
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -64,7 +64,7 @@ jobs:
 
       - name: Log into AWS
         if: ${{ matrix.molecule-scenario == 'ec2_platform' }}
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -90,7 +90,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Create and Push Tag
         env:
@@ -107,3 +107,22 @@ jobs:
           # Push the tag to the repository
           git push origin "refs/tags/$TAG_NAME" --force
 
+      - name: Tag the release version
+        if: github.ref_name == 'main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          TAG="v$(sed -n 's/^version:[[:space:]]*//p' galaxy.yml | head -1)"
+          # Version tags are immutable, and this runs on every push to main, so an
+          # unchanged version must be a no-op rather than a failure or a move.
+          # checkout does not fetch tags, so existence is checked against the remote.
+          if git ls-remote --exit-code --tags origin "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "$TAG already exists, nothing to do"
+            exit 0
+          fi
+          echo "Creating tag $TAG"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "refs/tags/$TAG"
