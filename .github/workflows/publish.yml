@@ -15,7 +15,7 @@ jobs:
     permissions:
       contents: write
     if: |
-      github.event.release.prerelase == false
+      github.event.release.prerelease == false
     steps:
       - name: Check deployment configuration
         shell: bash
