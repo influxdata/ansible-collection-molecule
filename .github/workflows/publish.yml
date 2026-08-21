@@ -11,8 +11,11 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Overrides the workflow-level `contents: read`; tagging the release needs write.
+    permissions:
+      contents: write
     if: |
-      github.event.release.prerelase == false
+      github.event.release.prerelease == false
     steps:
       - name: Check deployment configuration
         shell: bash
@@ -27,11 +30,11 @@ jobs:
 
       - name: Checkout repository
         if: ${{ env.GALAXY_DEPLOYMENT_ENABLED == '0' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Tag latest release
         if: ${{ env.GALAXY_DEPLOYMENT_ENABLED == '0' }}
-        uses: EndBug/latest-tag@latest
+        uses: EndBug/latest-tag@v1
         with:
           ref: latest
           description: This tag is automatically generated on new releases.
@@ -39,7 +42,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Deploy Collection
-        uses: artis3n/ansible_galaxy_collection@v2
+        uses: artis3n/ansible_galaxy_collection@v3
         if: ${{ env.GALAXY_DEPLOYMENT_ENABLED == '0' }}
         with:
           api_key: '${{ secrets.GALAXY_API_KEY }}'
