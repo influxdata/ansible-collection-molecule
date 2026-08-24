@@ -195,7 +195,7 @@ Pin whichever ref suits you:
 
 | Ref | Meaning |
 | --- | --- |
-| `latest` | The newest published release. Moved by the `Deploy Collection` workflow. |
+| `latest` | The newest published release. Always resolves to the same commit as some `v<x.y.z>` tag, never to a branch head. |
 | `v<x.y.z>` | An immutable release tag, created when the `galaxy.yml` version is bumped on `main`. |
 | `main`, `devel` | That branch's head as of its last push. Unreleased, and force-moved on every push. |
 

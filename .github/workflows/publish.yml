@@ -5,7 +5,7 @@ on:
   release:
     types:
       - published
-  # Re-point `latest` without cutting a release.
+  # Re-point `latest` at the newest release without cutting a new one.
   workflow_dispatch:
 permissions:
   contents: read
@@ -32,8 +32,33 @@ jobs:
             echo "GALAXY_DEPLOYMENT_ENABLED=true" >> $GITHUB_ENV
           fi
 
+      # `latest` means the newest released version. The branch heads already have
+      # their own `main`/`devel` tags, so resolve a release tag rather than
+      # tagging whatever ref triggered this run.
+      - name: Resolve the release to tag
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.release.tag_name }}"
+          if [ -z "$TAG" ]; then
+            # workflow_dispatch: `gh release view` reports the newest release,
+            # excluding drafts and prereleases.
+            TAG="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          fi
+          if [ -z "$TAG" ]; then
+            echo "::error::No release found to tag as latest."
+            exit 1
+          fi
+          echo "Tagging $TAG as latest"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.release.outputs.tag }}
 
       # Pushing to Galaxy is optional; tagging must not be gated on the API key.
       - name: Tag latest release
