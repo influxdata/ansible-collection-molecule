@@ -5,6 +5,8 @@ on:
   release:
     types:
       - published
+  # Re-point `latest` at the newest release without cutting a new one.
+  workflow_dispatch:
 permissions:
   contents: read
 
@@ -14,6 +16,8 @@ jobs:
     # Overrides the workflow-level `contents: read`; tagging the release needs write.
     permissions:
       contents: write
+    # A prerelease must not move `latest`. On workflow_dispatch the property is
+    # undefined, and Actions coerces both null and false to 0, so this still runs.
     if: |
       github.event.release.prerelease == false
     steps:
@@ -21,19 +25,43 @@ jobs:
         shell: bash
         run: |
           if [ -z "${{ secrets.GALAXY_API_KEY }}" ]; then
-            echo "No Galaxy API key found. Skipping deployment."
-            echo "GALAXY_DEPLOYMENT_ENABLED=1" >> $GITHUB_ENV
+            echo "No Galaxy API key found. Skipping Galaxy deployment."
+            echo "GALAXY_DEPLOYMENT_ENABLED=false" >> $GITHUB_ENV
           else
-            echo "Galaxy API key found. Deploying collection."
-            echo "GALAXY_DEPLOYMENT_ENABLED=0" >> $GITHUB_ENV
+            echo "Galaxy API key found. Deploying collection to Galaxy."
+            echo "GALAXY_DEPLOYMENT_ENABLED=true" >> $GITHUB_ENV
           fi
 
-      - name: Checkout repository
-        if: ${{ env.GALAXY_DEPLOYMENT_ENABLED == '0' }}
-        uses: actions/checkout@v7
+      # `latest` means the newest released version. The branch heads already have
+      # their own `main`/`devel` tags, so resolve a release tag rather than
+      # tagging whatever ref triggered this run.
+      - name: Resolve the release to tag
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ github.event.release.tag_name }}"
+          if [ -z "$TAG" ]; then
+            # workflow_dispatch: `gh release view` reports the newest release,
+            # excluding drafts and prereleases.
+            TAG="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)"
+          fi
+          if [ -z "$TAG" ]; then
+            echo "::error::No release found to tag as latest."
+            exit 1
+          fi
+          echo "Tagging $TAG as latest"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.release.outputs.tag }}
+
+      # Pushing to Galaxy is optional; tagging must not be gated on the API key.
       - name: Tag latest release
-        if: ${{ env.GALAXY_DEPLOYMENT_ENABLED == '0' }}
         uses: EndBug/latest-tag@v1
         with:
           ref: latest
@@ -43,7 +71,7 @@ jobs:
 
       - name: Build and Deploy Collection
         uses: artis3n/ansible_galaxy_collection@v3
-        if: ${{ env.GALAXY_DEPLOYMENT_ENABLED == '0' }}
+        if: ${{ env.GALAXY_DEPLOYMENT_ENABLED == 'true' }}
         with:
           api_key: '${{ secrets.GALAXY_API_KEY }}'
 
