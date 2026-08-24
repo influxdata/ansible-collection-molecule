@@ -5,7 +5,10 @@ on:
   release:
     types:
       - published
-  # Re-point `latest` at the newest release without cutting a new one.
+  # Re-point `latest` at the newest release without cutting a new one. Only works
+  # while that release's workflow files match main's — GITHUB_TOKEN cannot update a
+  # ref that changes .github/workflows/, and `workflows` is not a permission it can
+  # hold.
   workflow_dispatch:
 permissions:
   contents: read
