@@ -5,6 +5,8 @@ on:
   release:
     types:
       - published
+  # Re-point `latest` without cutting a release.
+  workflow_dispatch:
 permissions:
   contents: read
 
@@ -14,6 +16,8 @@ jobs:
     # Overrides the workflow-level `contents: read`; tagging the release needs write.
     permissions:
       contents: write
+    # A prerelease must not move `latest`. On workflow_dispatch the property is
+    # undefined, and Actions coerces both null and false to 0, so this still runs.
     if: |
       github.event.release.prerelease == false
     steps:
@@ -21,19 +25,18 @@ jobs:
         shell: bash
         run: |
           if [ -z "${{ secrets.GALAXY_API_KEY }}" ]; then
-            echo "No Galaxy API key found. Skipping deployment."
-            echo "GALAXY_DEPLOYMENT_ENABLED=1" >> $GITHUB_ENV
+            echo "No Galaxy API key found. Skipping Galaxy deployment."
+            echo "GALAXY_DEPLOYMENT_ENABLED=false" >> $GITHUB_ENV
           else
-            echo "Galaxy API key found. Deploying collection."
-            echo "GALAXY_DEPLOYMENT_ENABLED=0" >> $GITHUB_ENV
+            echo "Galaxy API key found. Deploying collection to Galaxy."
+            echo "GALAXY_DEPLOYMENT_ENABLED=true" >> $GITHUB_ENV
           fi
 
       - name: Checkout repository
-        if: ${{ env.GALAXY_DEPLOYMENT_ENABLED == '0' }}
         uses: actions/checkout@v7
 
+      # Pushing to Galaxy is optional; tagging must not be gated on the API key.
       - name: Tag latest release
-        if: ${{ env.GALAXY_DEPLOYMENT_ENABLED == '0' }}
         uses: EndBug/latest-tag@v1
         with:
           ref: latest
@@ -43,7 +46,7 @@ jobs:
 
       - name: Build and Deploy Collection
         uses: artis3n/ansible_galaxy_collection@v3
-        if: ${{ env.GALAXY_DEPLOYMENT_ENABLED == '0' }}
+        if: ${{ env.GALAXY_DEPLOYMENT_ENABLED == 'true' }}
         with:
           api_key: '${{ secrets.GALAXY_API_KEY }}'
 

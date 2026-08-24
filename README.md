@@ -184,12 +184,22 @@ roles_path = ./roles:/usr/share/ansible/roles:/etc/ansible/roles:~/.ansible/role
 collections_path = ./collections:/usr/share/ansible/collections:~/.ansible/collections
 ```
 
-or this collection should be installed locally with:  
+or this collection should be installed locally from its git source. This collection is distributed
+via GitHub releases and git tags rather than Ansible Galaxy:
 ```bash
-ansible-galaxy collection install -p ./collections influxdata.molecule
+ansible-galaxy collection install -p ./collections \
+  git+https://github.com/influxdata/ansible-collection-molecule.git,latest
 ```
 
-or if your `collections/requirements.yml` includes this collection:
+Pin whichever ref suits you:
+
+| Ref | Meaning |
+| --- | --- |
+| `latest` | The newest published release. Moved by the `Deploy Collection` workflow. |
+| `v<x.y.z>` | An immutable release tag, created when the `galaxy.yml` version is bumped on `main`. |
+| `main`, `devel` | That branch's head as of its last push. Unreleased, and force-moved on every push. |
+
+or if your `collections/requirements.yml` includes this collection as a git source:
 ```bash
 ansible-galaxy collection install -p ./collections -r ./collections/requirements.yml
 ```
