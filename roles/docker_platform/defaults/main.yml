@@ -129,6 +129,12 @@ docker_platform_container_defaults:
   # SELinux hosts can additionally use z or Z to use a shared or private label for the volume.
   volumes: []
 
+# Molecule run identifier. When set, it is appended to each container name and applied as the
+#  `molecule-run-id` label, so concurrent runs of one scenario on a shared Docker daemon don't
+#  collide. The inventory hostname stays the platform name.
+#  Empty (the local default) names containers exactly after their platform.
+docker_platform_run_id: "{{ lookup('env', 'MOLECULE_RUN_ID') }}"
+
 # Ansible hostvars that should be associated with the ansible test "host" created by this role
 #  stored in the format `name: value`
 docker_platform_hostvars: {}

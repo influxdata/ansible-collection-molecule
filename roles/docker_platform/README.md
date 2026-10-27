@@ -28,6 +28,11 @@ Requirements
 1. Docker should be installed
 1. The current user should be a member of the `docker` group
 
+Concurrent runs
+---------------
+
+When `MOLECULE_RUN_ID` is set (e.g. per CI job), each container is named `<platform name>-<MOLECULE_RUN_ID>` and labeled `molecule-run-id`, so concurrent runs of the same scenario on one Docker daemon can't create over or destroy each other's containers. The inventory hostname stays the platform name. Override with `docker_platform_run_id`; when it's empty (the default locally), containers are named exactly after their platform.
+
 Role Variables
 --------------
 

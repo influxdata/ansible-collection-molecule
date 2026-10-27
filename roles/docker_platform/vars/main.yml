@@ -16,6 +16,10 @@ docker_platform_systemd_tmpfs:
   - /run
   - /run/lock
 
+# Container name suffix derived from the run id ('' when unset), restricted to characters Docker allows in names
+__docker_platform_name_suffix: >-
+  {{ ('-' ~ (docker_platform_run_id | regex_replace('[^a-zA-Z0-9_.-]', '-'))) if docker_platform_run_id else '' }}
+
 # Base hostvars for docker containers that should always be present
 docker_platform_hostvars_base:
   ansible_connection: community.docker.docker

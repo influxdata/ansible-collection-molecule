@@ -80,6 +80,8 @@ jobs:
           ORCHESTRATOR_API_USERNAME: ${{ vars.ORCHESTRATOR_API_USERNAME }}
           MOLECULE_SSH_PRIVATE_KEY: ${{ secrets.MOLECULE_SSH_PRIVATE_KEY }}
           ORCHESTRATOR_API_PASSWORD: ${{ secrets.ORCHESTRATOR_API_PASSWORD }}
+          # Exercises run-scoped docker container names
+          MOLECULE_RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.molecule-scenario }}
         run: |
           molecule test -s ${{ matrix.molecule-scenario }}
 

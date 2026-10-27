@@ -17,11 +17,14 @@
     platform_exported_config: >-
       {%- set __platform_instances = {} -%}
       {%- for __platform in __platform_config -%}
+        {%- set __platform_container_name = __platform.name ~ __docker_platform_name_suffix -%}
         {%- set _ = __platform_instances.update({
           __platform.name: {
-            'hostvars': __platform.hostvars | default({}) | combine(docker_platform_hostvars_base),
+            'hostvars': __platform.hostvars | default({})
+              | combine(docker_platform_hostvars_base, {'ansible_host': __platform_container_name}),
             'instance_config': {
               'instance': __platform.name,
+              'address': __platform_container_name,
               'connection': 'docker'
             }
           }
