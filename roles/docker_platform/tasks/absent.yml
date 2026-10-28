@@ -10,7 +10,7 @@
     loop_var: __docker_platform_instance
     label: "{{ __docker_platform_instance.name }}"
   community.docker.docker_container:
-    name: "{{ __docker_platform_instance.name }}"
+    name: "{{ __docker_platform_instance.name ~ __docker_platform_name_suffix }}"
     state: absent
     auto_remove: true
   register: __docker_platform_remove_jobs
@@ -58,6 +58,7 @@
         | map(attribute='__docker_platform_remove_result')
         | map(attribute='__docker_platform_instance')
         | map(attribute='name')
+        | map('regex_replace', '$', __docker_platform_name_suffix)
         | list
       }}
 

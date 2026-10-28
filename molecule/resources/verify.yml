@@ -11,6 +11,33 @@
         fail_msg: "Custom hostvar not found! Possible issue with storing user-defined hostvars!"
         success_msg: "Custom hostvar found!"
 
+    - name: Test docker container is scoped to the Molecule run
+      when: ansible_connection == 'community.docker.docker'
+      vars:
+        __run_id: "{{ lookup('env', 'MOLECULE_RUN_ID') }}"
+        __expected_container_name: >-
+          {{ inventory_hostname ~ (('-' ~ (__run_id | regex_replace('[^a-zA-Z0-9_.-]', '-'))) if __run_id else '') }}
+      block:
+        - name: Test container is reached by its run-scoped name
+          ansible.builtin.assert:
+            that:
+              - ansible_host == __expected_container_name
+            fail_msg: "Expected container {{ __expected_container_name }}, inventory targets {{ ansible_host }}"
+            success_msg: "Container name is scoped to the Molecule run"
+
+        - name: Read container labels
+          delegate_to: localhost
+          community.docker.docker_container_info:
+            name: "{{ ansible_host }}"
+          register: __container_info
+
+        - name: Test container carries the run id label
+          ansible.builtin.assert:
+            that:
+              - (__container_info.container.Config.Labels['molecule-run-id'] | default('')) == __run_id
+            fail_msg: "molecule-run-id label is '{{ __container_info.container.Config.Labels['molecule-run-id'] | default('') }}', expected '{{ __run_id }}'"
+            success_msg: "Container run id label matches"
+
     # Guarded by host: this playbook is shared with the docker `default` scenario,
     # which attaches no EBS volumes.
     - name: Test ebs_volumes disk is attached

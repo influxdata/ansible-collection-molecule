@@ -25,7 +25,7 @@
     label: "{{ __docker_platform_instance.name }}"
   vars:
     __docker_platform_container_cfg:
-      name: "{{ __docker_platform_instance.name}}"
+      name: "{{ __docker_platform_instance.name ~ __docker_platform_name_suffix }}"
       image: "{{ __docker_platform_instance.image | default(docker_platform_container_defaults.image) }}"
       hostname: "{{ __docker_platform_instance.hostname | default(docker_platform_container_defaults.hostname) }}"
       command: "{{ __docker_platform_instance.command | default(docker_platform_container_defaults.command) }}"
@@ -90,7 +90,7 @@
     dns_servers: "{{ __docker_platform_container_cfg.dns_servers }}"
     docker_host: "{{ __docker_platform_container_cfg.docker_host }}"
     etc_hosts: "{{ __docker_platform_container_cfg.etc_hosts }}"
-    labels: "{{ __docker_platform_container_cfg.labels }}"
+    labels: "{{ __docker_platform_container_cfg.labels | combine({'molecule-run-id': docker_platform_run_id} if docker_platform_run_id else {}) }}"
     memory: "{{ __docker_platform_container_cfg.memory }}"
     network_mode: "{{ __docker_platform_container_cfg.network_mode }}"
     published_ports: "{{ __docker_platform_container_cfg.published_ports }}"
@@ -141,6 +141,7 @@
         | map(attribute='__docker_platform_create_result')
         | map(attribute='__docker_platform_instance')
         | map(attribute='name')
+        | map('regex_replace', '$', __docker_platform_name_suffix)
         | list
       }}
 
