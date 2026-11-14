@@ -76,7 +76,7 @@
               | json_query('[?__docker_platform_image_build_task.__docker_platform_definition.name==`' + __docker_platform_definition.name + '`]')
               | first).image.RepoTags | first,
             'pull': 'never',
-            'hostname': 'custom-' + __docker_platform_definition.name
+            'hostname': __docker_platform_definition.hostname | default('custom-' + __docker_platform_definition.name)
           }) -%}
           {%- set _ = __docker_platform_config_custom_build.append(__docker_platform_entry_update) -%}
         {%- endfor -%}

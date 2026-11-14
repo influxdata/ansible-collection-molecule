@@ -24,10 +24,18 @@
     loop_var: __docker_platform_instance
     label: "{{ __docker_platform_instance.name }}"
   vars:
+    __docker_platform_hostname_raw: "{{ __docker_platform_instance.hostname | default(docker_platform_container_defaults.hostname) }}"
     __docker_platform_container_cfg:
       name: "{{ __docker_platform_instance.name}}"
       image: "{{ __docker_platform_instance.image | default(docker_platform_container_defaults.image) }}"
-      hostname: "{{ __docker_platform_instance.hostname | default(docker_platform_container_defaults.hostname) }}"
+      # sethostname caps at 64 bytes; long names get a hash suffix so truncated siblings stay unique
+      hostname: >-
+        {{
+          __docker_platform_hostname_raw
+          if __docker_platform_hostname_raw | length <= 63
+          else (__docker_platform_hostname_raw[:54] | regex_replace('[-.]+$', ''))
+            ~ '-' ~ (__docker_platform_hostname_raw | hash('sha1'))[:8]
+        }}
       command: "{{ __docker_platform_instance.command | default(docker_platform_container_defaults.command) }}"
       volumes: "{{ __docker_platform_instance.volumes | default(docker_platform_container_defaults.volumes) }}"
       privileged: "{{ __docker_platform_instance.privileged | default(docker_platform_container_defaults.privileged) }}"

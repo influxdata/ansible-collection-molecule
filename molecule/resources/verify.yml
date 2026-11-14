@@ -11,6 +11,21 @@
         fail_msg: "Custom hostvar not found! Possible issue with storing user-defined hostvars!"
         success_msg: "Custom hostvar found!"
 
+    - name: Read container hostname
+      ansible.builtin.command: cat /proc/sys/kernel/hostname
+      register: __verify_hostname
+      changed_when: false
+
+    - name: Test hostname fits the kernel limit and is unique
+      vars:
+        __verify_hostnames: "{{ ansible_play_hosts | map('extract', hostvars, ['__verify_hostname', 'stdout']) | list }}"
+      ansible.builtin.assert:
+        that:
+          - __verify_hostname.stdout | length <= 63
+          - __verify_hostnames | unique | length == __verify_hostnames | length
+        fail_msg: "Hostname {{ __verify_hostname.stdout }} is over 63 chars or collides with another host: {{ __verify_hostnames }}"
+        success_msg: "Hostname {{ __verify_hostname.stdout }} is valid and unique"
+
     # Guarded by host: this playbook is shared with the docker `default` scenario,
     # which attaches no EBS volumes.
     - name: Test ebs_volumes disk is attached
