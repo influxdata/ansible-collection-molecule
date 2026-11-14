@@ -52,7 +52,7 @@ cap_drop: []
 # Command to run in the container
 command: ""
 
-# Container hostname
+# Container hostname. Values over 63 chars are cut to 54 plus an 8-char hash suffix.
 hostname: molecule-ci-{{ __docker_platform_instance.name | default('instance') }}
 
 # Number of CPUs to allocate to the container

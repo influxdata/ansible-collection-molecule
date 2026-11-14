@@ -25,6 +25,14 @@ platforms:
     privileged: False
     hostvars:
       test_hostvar: test
+  # Name long enough that the default hostname exceeds the 64-byte kernel limit
+  - name: ansible-collection-molecule-docker-rockylinux9-with-a-long-platform-name
+    type: docker
+    image: geerlingguy/docker-rockylinux9-ansible:latest
+    systemd: True
+    privileged: False
+    hostvars:
+      test_hostvar: test
   - name: ansible-collection-molecule-docker-fedora41
     type: docker
     image: geerlingguy/docker-fedora41-ansible:latest
